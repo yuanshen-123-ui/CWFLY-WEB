@@ -215,3 +215,16 @@ pm2 reload cwfly-api
 ---
 
 © CWFLY 模拟飞行社区 · [cwflysim.cn](https://www.cwflysim.cn)
+
+---
+
+## 许可证
+
+本项目采用 **GNU General Public License v3.0**（GPL-3.0）开源。
+完整条款见仓库根目录 [LICENSE](LICENSE)；简单说明：
+
+- 允许自由使用、修改、分发本软件（含商业用途）
+- 分发修改版或衍生作品时必须同样以 GPL-3.0 开源，并提供源码
+- 不提供任何担保（详见 GPL-3.0 第 15、16 条）
+
+Copyright (C) 2026 yuanshen-123-ui
