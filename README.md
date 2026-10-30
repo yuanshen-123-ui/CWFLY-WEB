@@ -211,8 +211,6 @@ pm2 reload cwfly-api
 | [CWFLY-BOT](https://github.com/yuanshen-123-ui/CWFLY-BOT) | QQ 机器人 |
 | [CWFLY-DOCS](https://github.com/yuanshen-123-ui/CWFLY-DOCS) | 文档站 |
 
-> 本仓库由 CWFLY 主仓库于 2026-10-30 拆分而来，初始提交为当时快照（不含历史）。
-> 姊妹项目：**CTYFLY**（CTY 飞控官网）—— [CTYFLY-WEB](https://github.com/yuanshen-123-ui/CTYFLY-WEB)
 
 ---
 
