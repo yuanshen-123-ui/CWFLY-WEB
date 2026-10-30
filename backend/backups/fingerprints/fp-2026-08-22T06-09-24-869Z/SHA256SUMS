@@ -1,0 +1,7 @@
+# CWFLY 设备指纹证据备份
+# exported: 2026-08-22T06:09:24.874Z
+# rows: loginlog=59 security=4 users=2
+
+f1c59bd4715d020d0fb0a20bb0c8835d19e1b80d3916cebe9f1eda8ff353a030  loginlog.tsv
+d50d55b11df8b89ebed8cc810c1014ce1b591e9a30cde774ed8fe33b3237a1fa  security_events.tsv
+83e72e3aaa1f326d3251f501fd74937a58a7a91211bce58e6fe85ad57d410fa1  users.tsv

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+backend/logs/
+backend/mysql-data/
+backend/uploads/
+frontend/dist/
+dev.db
+*.db
+*.pem
+*.key
+.DS_Store
+Thumbs.db

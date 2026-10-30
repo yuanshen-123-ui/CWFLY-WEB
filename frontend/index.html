@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/logo/logo_transparent.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    // 首屏主题预置：在 CSS/应用渲染前按 localStorage + 北京时间(AUTO) 决定深/浅，
+    // 让首帧直接以正确配色渲染（无浅色闪屏、无 1s 渐变动画）。与 utils/theme.js 逻辑保持一致。
+    (function () {
+      try {
+        var mode = localStorage.getItem('cw_theme') || 'auto';
+        var dark = false;
+        if (mode === 'dark') dark = true;
+        else if (mode === 'light') dark = false;
+        else { // auto: 北京时间 19:00-07:00 为深色
+          var h = (new Date().getUTCHours() + 8) % 24;
+          dark = (h >= 19 || h < 7);
+        }
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      } catch (e) {}
+    })();
+  </script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <title>Loading.</title>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
