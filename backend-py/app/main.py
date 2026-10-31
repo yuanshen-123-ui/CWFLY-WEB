@@ -26,7 +26,7 @@ from app.middleware.rate_limit import (
     RateLimitMiddleware,
 )
 from app.middleware.security_headers import SecurityHeadersMiddleware
-from app.routers import auth
+from app.routers import auth, flightplans
 from app.services.bootstrap import init_admin
 from app.utils.json_compat import JSJSONResponse, js_iso
 
@@ -127,6 +127,7 @@ async def _unhandled_handler(request: Request, exc: Exception) -> Response:
 # ---------- 路由 ----------
 api = APIRouter(prefix="/api")
 api.include_router(auth.router)
+api.include_router(flightplans.router)
 app.include_router(api)
 
 

@@ -10,4 +10,6 @@ __all__ = [
     "ip_hopping",
     "users",
     "bootstrap",
+    "fsd_mgmt",
+    "flightplans",
 ]
