@@ -27,6 +27,19 @@ async def ensure_table() -> None:
         from app.db.session import SessionLocal
 
         async with SessionLocal() as db:
+            exists = (
+                await db.execute(
+                    text(
+                        "SELECT COUNT(*) AS c FROM information_schema.tables "
+                        "WHERE table_schema = DATABASE() AND table_name = 'RateLimit'"
+                    )
+                )
+            ).first()._mapping["c"]
+            if int(exists) > 0:
+                _ready = True
+                await db.close()
+                log.info("[RateLimitStore] RateLimit 表已存在")
+                return
             await db.execute(
                 text(
                     "CREATE TABLE IF NOT EXISTS `RateLimit` ("

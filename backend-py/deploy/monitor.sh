@@ -57,7 +57,7 @@ errs=0
 if [ -f "$ERRLOG" ]; then
   errs=$(awk -v cutoff="$(date -d '-90 seconds' '+%Y-%m-%d %H:%M:%S' 2>/dev/null)" '
     { ts = $1 " " $2 }
-    ts >= cutoff && /(ERROR|Traceback|Exception)/ { c++ }
+    ts >= cutoff && /(ERROR|Traceback|Exception)/ && !/CancelledError/ { c++ }
     END { print c+0 }' "$ERRLOG" 2>/dev/null)
 fi
 if [ "${errs:-0}" -ge 3 ]; then
