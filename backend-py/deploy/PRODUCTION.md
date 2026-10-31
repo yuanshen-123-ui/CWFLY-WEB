@@ -194,6 +194,8 @@ async def some_action(): ...
 | 文案 | 带 emoji 的卡片：🛫 上线通知（含 CID/等级/频率/时间/ATC INFO）、🛬 下线通知（含时长） |
 | 防抖 | 上线等 ATIS 最多 10s；下线延迟 2s（会话恢复可取消）；FSD 启动快照 2s 内不播 |
 | 代码 | `bot/src/index.js`（`buildControllerCard` / `announceControllerOnline` / `announceControllerOffline`） |
+| 信息更新 | 管制员修改**频率**或 **ATC INFO** 时额外播报「📝 管制信息更新」：仅在已播报上线且上线满 15s 后触发；2.5s 内多项变更合并为一条；同一席位 60s 内最多一条；ATIS 周期性重发相同内容不触发 |
+| 可调参数 | `INFO_UPDATE_GRACE_MS`（默认 15000）、`INFO_UPDATE_MIN_INTERVAL_MS`（默认 60000） |
 
 ## 十四、JWT 有效期
 
