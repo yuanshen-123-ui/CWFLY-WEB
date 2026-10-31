@@ -120,11 +120,6 @@ const router = createRouter({
  *   11 = 管理员
  *   12 = 超级管理员
  */
-const RATING_THRESHOLDS = {
-  admin: 11,      // /admin/* 路由需要 rating >= 11
-  moderator: 8,   // rating >= 8
-}
-
 // 路由守卫：检查登录状态和 rating 节点权限；token 过期时前端判定续签
 router.beforeEach(async (to, from, next) => {
   // 公开页

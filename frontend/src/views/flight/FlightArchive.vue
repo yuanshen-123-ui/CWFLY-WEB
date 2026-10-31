@@ -64,7 +64,7 @@ const flights = ref([])
 const detail = ref(null)
 
 onMounted(async () => {
-  try { const r = await api.get('/flightplans'); flights.value = (r.data || []) } catch {}
+  try { const r = await api.get('/flightplans'); flights.value = (r.data || []) } catch { /* ignore */ }
 })
 
 function formatDate(t) {

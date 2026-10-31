@@ -30,10 +30,9 @@ const REF_ZOOM = 9
 let map = null                  // mapboxgl.Map 实例
 let renderer = null             // Three.js WebGLRenderer（复用 Mapbox 的 GL 上下文）
 let scene = null                // Three.js 场景
-let camera = null               // 虚拟相机（矩阵由 Mapbox transform 驱动）
-let customLayer = null          // Mapbox custom layer 实例
-let modelCache = new Map()      // 机型 -> THREE.Group（已加载模型模板）
-let aircraftPool = new Map()    // callsign -> { group, target, current }（每架飞机的实例与插值状态）
+let _customLayer = null          // Mapbox custom layer 实例
+const modelCache = new Map()      // 机型 -> THREE.Group（已加载模型模板）
+const aircraftPool = new Map()    // callsign -> { group, target, current }（每架飞机的实例与插值状态）
 let loader = null               // GLTFLoader
 let ready = false               // 图层是否已加入地图
 let pendingPilots = []          // 地图就绪前到达的数据缓存
@@ -156,7 +155,7 @@ export function createAircraft3DLayer(mapboxMap) {
   map = mapboxMap
   loader = new GLTFLoader()
 
-  const layer = customLayer = {
+  const layer = _customLayer = {
     id: 'aircraft-3d-layer',
     type: 'custom',
     renderingMode: '3d',
@@ -310,6 +309,6 @@ export function destroyAircraft3D() {
   modelCache.clear()
   ready = false
   pendingPilots = []
-  customLayer = null
+  _customLayer = null
   map = null
 }

@@ -32,7 +32,7 @@ onMounted(async () => {
   try {
     const r = await api.get('/content/knowledge/' + route.params.id)
     article.value = r.data
-  } catch {}
+  } catch { /* ignore */ }
 })
 
 function formatTime(t) {

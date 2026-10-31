@@ -10,9 +10,21 @@
  * 入参：无。返回：均为具名导出常量/函数。
  * 副作用：无（不触碰 DOM、不注册监听、无定时器），因此无需清理。
  */
+import { hasMapboxToken } from '@/utils/mapboxHealth'
+
 export const AMAP_KEY = '89b5c51a7622408a444f2c62a7de6113'
 export const AMAP_SECURITY_CODE = 'a20594f2f5e875560ec09be0fca30a1a'
 export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || ''
+
+/**
+ * 当前构建是否配置了「可尝试使用」的 Mapbox 令牌（纯函数，便于单测）。
+ * 仅判断非空/非占位符，不代表令牌真实有效；真实有效性由 useOnlineMapInteraction
+ * 的 Mapbox error（401/invalid token）监听兜底并回退 2D。
+ * @returns {boolean}
+ */
+export function isMapboxConfigured() {
+  return hasMapboxToken(MAPBOX_TOKEN)
+}
 // OpenWeatherMap 天气雷达（降水图层, 2D/3D 所有地图源通用叠加）
 export const OWM_KEY = import.meta.env.VITE_OWM_KEY || ''
 export const OWM_RADAR_URL = (z, x, y) => `https://tile.openweathermap.org/map/precipitation_new/${z}/${x}/${y}.png?appid=${OWM_KEY}`

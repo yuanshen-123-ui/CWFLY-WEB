@@ -55,7 +55,7 @@ onMounted(async () => {
     const r = await api.get('/points')
     data.value = r.data?.points || {}
     achievements.value = r.data?.achievements || []
-  } catch {} finally {
+  } catch { /* ignore */ } finally {
     loading.value = false
   }
 })

@@ -489,7 +489,7 @@ async function waitFsdSync(id) {
       const r = await flightplanApi.list()
       const p = (r.data || []).find(x => x.id === id)
       if (p?.syncFsd) return p
-    } catch {}
+    } catch { /* ignore */ }
   }
   return null
 }

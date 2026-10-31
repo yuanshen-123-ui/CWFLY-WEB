@@ -52,7 +52,7 @@ const loading = ref(false)
 
 onMounted(async () => {
   loading.value = true
-  try { const r = await api.get('/points/leaderboard'); leaderboard.value = r.data || [] } catch {} finally {
+  try { const r = await api.get('/points/leaderboard'); leaderboard.value = r.data || [] } catch { /* ignore */ } finally {
     loading.value = false
   }
 })

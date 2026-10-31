@@ -77,10 +77,10 @@ const newCourse = ref({ title: '', category: '', difficulty: '初级', content: 
 onMounted(() => { loadCourses(); loadRecords() })
 
 async function loadCourses() {
-  try { const r = await api.get('/admin/training/courses'); courses.value = r.data || [] } catch {}
+  try { const r = await api.get('/admin/training/courses'); courses.value = r.data || [] } catch { /* ignore */ }
 }
 async function loadRecords() {
-  try { const r = await api.get('/admin/training/records'); records.value = r.data || [] } catch {}
+  try { const r = await api.get('/admin/training/records'); records.value = r.data || [] } catch { /* ignore */ }
 }
 
 async function createCourse() {
@@ -98,7 +98,7 @@ async function createCourse() {
 
 async function deleteCourse(id) {
   if (!confirm('确定删除？')) return
-  try { await api.delete('/admin/training/courses/' + id); loadCourses() } catch {}
+  try { await api.delete('/admin/training/courses/' + id); loadCourses() } catch { /* ignore */ }
 }
 
 function formatTime(t) {

@@ -82,7 +82,7 @@ onMounted(() => load())
 
 async function load() {
   loading.value = true
-  try { const r = await api.get('/admin/notifications'); notifications.value = r.data || [] } catch {} finally {
+  try { const r = await api.get('/admin/notifications'); notifications.value = r.data || [] } catch { /* ignore */ } finally {
     loading.value = false
   }
 }
@@ -102,7 +102,7 @@ async function createNotif() {
 
 async function deleteNotif(id) {
   if (!confirm('确定删除？')) return
-  try { await api.delete('/admin/notifications/' + id); load() } catch {}
+  try { await api.delete('/admin/notifications/' + id); load() } catch { /* ignore */ }
 }
 
 function formatTime(t) {

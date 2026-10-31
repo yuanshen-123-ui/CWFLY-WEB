@@ -28,8 +28,7 @@ export function useAirportGroundLayers(ctx) {
   // 数据来源: X-Plane Scenery Gateway apt.dat → tools/apt2geojson.py 转换
   // 文件: /airports/{icao}.json；zoom >= APT_ZOOM_MIN 且视口靠近机场时才加载
   const APT_ZOOM_MIN = 10.5
-  let airportLayersLoaded = new Set()   // 已加载的 ICAO
-  let airportMoveHandlerBound = false
+  const airportLayersLoaded = new Set()   // 已加载的 ICAO
 
   /** 内置机场索引: ICAO -> [lng, lat]（用于视口判定；由 tools/apt2geojson.py 生成, 含 EAIP 全部 81 机场） */
   const AIRPORT_INDEX = {
@@ -393,9 +392,9 @@ export function useAirportGroundLayers(ctx) {
     if (!ctx.mapboxMap) return
     const srcId = `apt-${icao}`
     for (const l of ['-runway', '-runway-line', '-runway-label', '-taxiway-label', '-stand-label', '-taxiway-fill', '-runway-no', '-centerline', '-stop-bar', '-blast-pad', '-blast-pad-area', '-groove']) {
-      try { if (ctx.mapboxMap.getLayer(srcId + l)) ctx.mapboxMap.removeLayer(srcId + l) } catch {}
+      try { if (ctx.mapboxMap.getLayer(srcId + l)) ctx.mapboxMap.removeLayer(srcId + l) } catch { /* ignore */ }
     }
-    try { if (ctx.mapboxMap.getSource(srcId)) ctx.mapboxMap.removeSource(srcId) } catch {}
+    try { if (ctx.mapboxMap.getSource(srcId)) ctx.mapboxMap.removeSource(srcId) } catch { /* ignore */ }
     airportLayersLoaded.delete(icao)
   }
 
@@ -554,10 +553,10 @@ export function useAirportGroundLayers(ctx) {
   function removeAirportLayerAMap(icao) {
     const layer = amapAirportLayers[icao]
     if (!layer) return
-    layer.polys.forEach(o => { try { ctx.map.remove(o) } catch {} })
-    layer.lines.forEach(o => { try { ctx.map.remove(o) } catch {} })
+    layer.polys.forEach(o => { try { ctx.map.remove(o) } catch { /* ignore */ } })
+    layer.lines.forEach(o => { try { ctx.map.remove(o) } catch { /* ignore */ } })
     if (layer.labels.length && amapAirportLabelsLayer) {
-      try { amapAirportLabelsLayer.remove(layer.labels) } catch {}
+      try { amapAirportLabelsLayer.remove(layer.labels) } catch { /* ignore */ }
     }
     delete amapAirportLayers[icao]
   }
@@ -569,14 +568,14 @@ export function useAirportGroundLayers(ctx) {
     for (const icao of airportLayersLoaded) {
       const taxi = ctx.mapboxMap.getLayer(`apt-${icao}-taxiway-label`)
       if (taxi) {
-        try { ctx.mapboxMap.setPaintProperty(taxi.id, 'text-halo-color', halo) } catch {}
+        try { ctx.mapboxMap.setPaintProperty(taxi.id, 'text-halo-color', halo) } catch { /* ignore */ }
       }
       const stand = ctx.mapboxMap.getLayer(`apt-${icao}-stand-label`)
       if (stand) {
         try {
           ctx.mapboxMap.setPaintProperty(stand.id, 'text-color', dark ? '#9ca3af' : '#6b7280')
           ctx.mapboxMap.setPaintProperty(stand.id, 'text-halo-color', halo)
-        } catch {}
+        } catch { /* ignore */ }
       }
     }
   }

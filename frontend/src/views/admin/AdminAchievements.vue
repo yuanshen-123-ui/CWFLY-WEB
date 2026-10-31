@@ -50,7 +50,7 @@ const createLoading = ref(false)
 const newAch = ref({ name: '', icon: '🏆', description: '', condition: '' })
 
 onMounted(async () => {
-  try { const r = await api.get('/admin/achievements'); achievements.value = r.data || [] } catch {}
+  try { const r = await api.get('/admin/achievements'); achievements.value = r.data || [] } catch { /* ignore */ }
 })
 
 async function createAchievement() {
@@ -69,7 +69,7 @@ async function createAchievement() {
 
 async function deleteAchievement(id) {
   if (!confirm('确定删除？')) return
-  try { await api.delete('/admin/achievements/' + id); const r = await api.get('/admin/achievements'); achievements.value = r.data || [] } catch {}
+  try { await api.delete('/admin/achievements/' + id); const r = await api.get('/admin/achievements'); achievements.value = r.data || [] } catch { /* ignore */ }
 }
 </script>
 

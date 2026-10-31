@@ -40,7 +40,7 @@ async function load() {
     const params = category.value ? { category: category.value } : {}
     const r = await api.get('/content/knowledge', { params })
     articles.value = r.data || []
-  } catch {}
+  } catch { /* ignore */ }
 }
 
 function formatTime(t) {

@@ -68,7 +68,7 @@ async function search() {
     results.value = r.data
     const hasAny = Object.values(r.data || {}).some(arr => arr && arr.length > 0)
     noResults.value = !hasAny
-  } catch {}
+  } catch { /* ignore */ }
   finally { loading.value = false }
 }
 

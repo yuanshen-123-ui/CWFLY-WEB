@@ -33,7 +33,7 @@ function rotr(x, n) {
 function utf8Bytes(str) {
   const out = []
   for (let i = 0; i < str.length; i++) {
-    let c = str.charCodeAt(i)
+    const c = str.charCodeAt(i)
     if (c < 0x80) {
       out.push(c)
     } else if (c < 0x800) {

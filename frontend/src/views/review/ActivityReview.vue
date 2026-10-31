@@ -36,7 +36,7 @@ function renderContent(c) {
 const reviews = ref([])
 
 onMounted(async () => {
-  try { const r = await api.get('/events/reviews'); reviews.value = r.data || [] } catch {}
+  try { const r = await api.get('/events/reviews'); reviews.value = r.data || [] } catch { /* ignore */ }
 })
 
 function formatTime(t) {

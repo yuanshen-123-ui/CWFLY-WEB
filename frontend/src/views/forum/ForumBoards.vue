@@ -44,8 +44,8 @@ const boards = ref([])
 const posts = ref([])
 
 onMounted(async () => {
-  try { const r = await api.get('/forum/boards'); boards.value = r.data || [] } catch {}
-  try { const r = await api.get('/forum/posts'); posts.value = r.data?.items || [] } catch {}
+  try { const r = await api.get('/forum/boards'); boards.value = r.data || [] } catch { /* ignore */ }
+  try { const r = await api.get('/forum/posts'); posts.value = r.data?.items || [] } catch { /* ignore */ }
 })
 
 function formatTime(t) {

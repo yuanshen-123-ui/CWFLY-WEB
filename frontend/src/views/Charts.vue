@@ -239,7 +239,7 @@ const chartCategories = [
 
 /** API category 字段到分类键的映射（含 AIP 的英文类别） */
 const CATEGORY_MAP = {
-  APT: 'REF', APT: 'REF', AIRPORT: 'REF',       // 机场概况 → 参考图
+  APT: 'REF', AIRPORT: 'REF',                   // 机场概况 → 参考图
   REF: 'REF', REFERENCE: 'REF',                 // 参考信息 → 参考图
   DEP: 'SID', DEPARTURE: 'SID',                 // 离场程序 → 离场 SID
   ARR: 'STAR', ARRIVAL: 'STAR',                 // 进场程序 → 进场 STAR
@@ -404,11 +404,6 @@ function chartImageUrl(c) { return c.image_day_url || c.url || c.image_url || c.
 function onImgErr(c) {
   const key = chartKey(c)
   if (key) failedImages.value = new Set([...failedImages.value, key])
-}
-
-function openPreview(c) {
-  const url = c.image_day_url || c.url
-  if (url) window.open(url, '_blank')
 }
 
 onMounted(() => {

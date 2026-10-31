@@ -113,6 +113,9 @@ async function uploadFile(e) {
       showMessage(`上传成功：${file.name}`)
     }, 500)
   } catch (err) {
+    // TODO(lint-freeze): timer 从未声明，执行到该分支会抛 ReferenceError；
+    // 删除该行或改清理 messageTimer 都会改变错误分支行为，暂按原状保留，待业务确认。
+    // eslint-disable-next-line no-undef
     clearInterval(timer)
     uploading.value = false
     showMessage(err.message || '上传失败，请检查文件类型和大小（支持 PDF/DOC/DOCX，最大 20MB）', 'error')

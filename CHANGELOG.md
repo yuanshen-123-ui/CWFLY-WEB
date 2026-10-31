@@ -114,3 +114,10 @@
 
 ### 文档（P3）
 - 重写 `README.md`、`CONTRIBUTING.md`，新增 `CHANGELOG.md`、`docs/ARCHITECTURE.md`、`docs/交接文档.md`、`docs/TESTING.md`
+
+### 收口（工程质量闭环）
+
+- **ESLint 全站门禁**：`eslint src` 覆盖 149 文件，清理 113 条历史问题（行为等价），仅保留 3 处最小定向豁免
+- **单测扩到 13 文件 / 232 用例**：新增地图核心（GCJ-02/图层/配置）、Mapbox 降级决策、在线地图数据轮询、导航权限与高亮 4 组测试
+- **Mapbox 3D 令牌缺失优雅降级**：无 token / 401 / invalid access token 时自动回退 2D 高德、3D 入口置灰并提示，只回退一次（会话标记）
+- 修复：`@vue/devtools-api` 显式声明（pinia peer，缺失会导致全新安装后构建失败）；`vitest.config.js` include 增加 composables 测试目录

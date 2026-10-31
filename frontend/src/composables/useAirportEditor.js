@@ -38,7 +38,7 @@ export function useAirportEditor(ctx) {
   // 功能：同名牌滑行道合并为一条可编辑折线；末端绿色端点可拖动延伸；
   //       双击标签/折线改名；拖动标签调整位置。编辑结果存 localStorage。
   const APT_EDIT_STORE_KEY = 'cw_apt_edit_v1'   // { [icao]: { taxiLines: {name: coords[]}, labelPos: {name: [lon,lat]} } }
-  let aptEdit = { active: false, icao: null, lines: {}, labelPos: {}, labelCount: {}, curves: {}, stopBarPos: {}, drag: null, activeGrooveRwy: null }
+  const aptEdit = { active: false, icao: null, lines: {}, labelPos: {}, labelCount: {}, curves: {}, stopBarPos: {}, drag: null, activeGrooveRwy: null }
   const APT_HISTORY_LIMIT = 10   // 撤销/重做最大步数
   let aptUndoStack = []          // 撤销栈（每个元素为一个历史快照，存操作前的状态）
   let aptRedoStack = []          // 重做栈
@@ -47,16 +47,16 @@ export function useAirportEditor(ctx) {
   let aptEditSnapshot = null        // 进入编辑模式时的机场源快照（取消时回滚用）
   let aptDrawPts = []
   let aptDrawTimer = null
-  let aptDrawLastClick = 0
+  let _aptDrawLastClick = 0
   function clearAptDrawState() {
     aptDrawPts = []
     clearTimeout(aptDrawTimer); aptDrawTimer = null
-    aptDrawLastClick = 0
+    _aptDrawLastClick = 0
     if (ctx.mapboxMap) {
-      try { if (ctx.mapboxMap.getLayer('apt-draw-line-layer')) ctx.mapboxMap.removeLayer('apt-draw-line-layer') } catch {}
-      try { if (ctx.mapboxMap.getSource('apt-draw-line')) ctx.mapboxMap.removeSource('apt-draw-line') } catch {}
-      try { if (ctx.mapboxMap.getLayer('apt-draw-points-layer')) ctx.mapboxMap.removeLayer('apt-draw-points-layer') } catch {}
-      try { if (ctx.mapboxMap.getSource('apt-draw-points')) ctx.mapboxMap.removeSource('apt-draw-points') } catch {}
+      try { if (ctx.mapboxMap.getLayer('apt-draw-line-layer')) ctx.mapboxMap.removeLayer('apt-draw-line-layer') } catch { /* ignore */ }
+      try { if (ctx.mapboxMap.getSource('apt-draw-line')) ctx.mapboxMap.removeSource('apt-draw-line') } catch { /* ignore */ }
+      try { if (ctx.mapboxMap.getLayer('apt-draw-points-layer')) ctx.mapboxMap.removeLayer('apt-draw-points-layer') } catch { /* ignore */ }
+      try { if (ctx.mapboxMap.getSource('apt-draw-points')) ctx.mapboxMap.removeSource('apt-draw-points') } catch { /* ignore */ }
     }
   }
 
@@ -170,7 +170,6 @@ export function useAirportEditor(ctx) {
 
   /** 弧线控制点：curves[name] = { idx: [lon,lat] }，idx 为该端点在折线中的下标，
    *  控制点坐标即"黄色端点"位置；折线经该端点相邻两段以二次贝塞尔弯曲 */
-  function curveKey(name, idx) { return `${name}:${idx}` }
   function isCurved(name, idx) {
     const c = aptEdit.curves || {}
     return !!(c[name] && c[name][idx])
@@ -289,7 +288,7 @@ export function useAirportEditor(ctx) {
     } else {
       clearAptDrawState()
       removeRunwayToolbar()
-      try { ctx.mapboxMap && ctx.mapboxMap.doubleClickZoom.enable() } catch {}
+      try { ctx.mapboxMap && ctx.mapboxMap.doubleClickZoom.enable() } catch { /* ignore */ }
       clearAptEditOverlays()
       aptEdit.icao = null
       aptEdit.lines = {}
@@ -342,7 +341,7 @@ export function useAirportEditor(ctx) {
           return
         }
         aptEdit.icao = code
-        try { ctx.mapboxMap.flyTo({ center: pos, zoom: 12, duration: 1200 }) } catch {}
+        try { ctx.mapboxMap.flyTo({ center: pos, zoom: 12, duration: 1200 }) } catch { /* ignore */ }
         waitAirportLoaded(code, () => {
           showBanner(`正在编辑机场 ${code}`, { duration: 2200 })
           initAptEditForIcao()
@@ -383,16 +382,10 @@ export function useAirportEditor(ctx) {
       try {
         if (APT_POLY_MODES.includes(aptToolMode.value)) ctx.mapboxMap.doubleClickZoom.disable()
         else ctx.mapboxMap.doubleClickZoom.enable()
-      } catch {}
+      } catch { /* ignore */ }
     }
     // 切换放置模式时改变地图光标为十字
     ctx.applyDevCursor()
-  }
-
-  /** 确认：TODO 后续对接服务器保存接口；当前先持久化本地 */
-  function aptEditConfirm() {
-    aptEditSave()
-    showBanner('机场编辑已保存（本地）', { duration: 2000 })
   }
 
   /** 提交到服务器：把当前机场编辑后的完整 GeoJSON POST 给后端，需输入 WEB_SECRET 密码校验
@@ -796,7 +789,7 @@ export function useAirportEditor(ctx) {
         // 勾选进入绘制模式
         aptEdit.activeGrooveRwy = name
         aptToolMode.value = 'add-groove'
-        try { ctx.mapboxMap.doubleClickZoom.disable() } catch {}
+        try { ctx.mapboxMap.doubleClickZoom.disable() } catch { /* ignore */ }
         ctx.applyDevCursor()
         showBanner('单击绘制地面刻槽，双击结束', { duration: 2200 })
       },
@@ -804,7 +797,7 @@ export function useAirportEditor(ctx) {
         // 取消移除全部刻槽
         aptEdit.activeGrooveRwy = null
         if (aptToolMode.value === 'add-groove') aptToolMode.value = null
-        try { ctx.mapboxMap.doubleClickZoom.enable() } catch {}
+        try { ctx.mapboxMap.doubleClickZoom.enable() } catch { /* ignore */ }
         ctx.applyDevCursor()
         removeRunwayGrooves(name)
         showBanner('已移除地面刻槽', { duration: 1500 })
@@ -970,7 +963,7 @@ export function useAirportEditor(ctx) {
     if (pts.length <= 2) return [...pts]
     const remaining = pts.map(p => [...p])
     // 1. 找最远点对作为初始两端
-    let a = remaining[0], b = remaining[1], bestD = -1, bestI = [0, 1]
+    let bestD = -1, bestI = [0, 1]
     for (let i = 0; i < remaining.length; i++) {
       for (let j = i + 1; j < remaining.length; j++) {
         const d = (remaining[i][0] - remaining[j][0]) ** 2 + (remaining[i][1] - remaining[j][1]) ** 2
@@ -1017,7 +1010,7 @@ export function useAirportEditor(ctx) {
         if (ctx.mapboxMap.getSource('apt-draw-line')) ctx.mapboxMap.removeSource('apt-draw-line')
         if (ctx.mapboxMap.getLayer('apt-draw-points-layer')) ctx.mapboxMap.removeLayer('apt-draw-points-layer')
         if (ctx.mapboxMap.getSource('apt-draw-points')) ctx.mapboxMap.removeSource('apt-draw-points')
-      } catch {}
+      } catch { /* ignore */ }
     }
     const updateAptDrawPreview = () => {
       if (!ctx.mapboxMap || !aptDrawPts.length) return
@@ -1040,7 +1033,7 @@ export function useAirportEditor(ctx) {
       const pts = aptDrawPts
       aptDrawPts = []
       clearTimeout(aptDrawTimer); aptDrawTimer = null
-      aptDrawLastClick = 0
+      _aptDrawLastClick = 0
       removeAptDrawPreview()
       const mode = aptToolMode.value
       // 几何绘制（跑道/滑行道）需至少两个点；标签类单点可只放一个标签
@@ -1090,7 +1083,7 @@ export function useAirportEditor(ctx) {
       const name = feat.properties.name
       const idx = Number(feat.properties.idx)
       if (!aptEdit.curves[name] || !aptEdit.curves[name][idx]) return
-      try { ctx.mapboxMap.dragPan.disable() } catch {} 
+      try { ctx.mapboxMap.dragPan.disable() } catch { /* ignore */ }
       canvas.style.cursor = 'grabbing'
       const onMove = (ev) => {
         if (!aptEdit.curves[name]) return
@@ -1098,7 +1091,7 @@ export function useAirportEditor(ctx) {
         rebuildAptEditData()
       }
       const onUp = () => {
-        try { ctx.mapboxMap.dragPan.enable() } catch {} 
+        try { ctx.mapboxMap.dragPan.enable() } catch { /* ignore */ }
         canvas.style.cursor = ''
         aptEditSave()
         rebuildAptEditData()
@@ -1120,7 +1113,7 @@ export function useAirportEditor(ctx) {
       const idx = Number(feat.properties.idx)
       const line = aptEdit.lines[name]
       if (!line || Number.isNaN(idx)) return
-      try { ctx.mapboxMap.dragPan.disable() } catch {} 
+      try { ctx.mapboxMap.dragPan.disable() } catch { /* ignore */ }
       aptEdit.drag = { name, idx }
       canvas.style.cursor = 'grabbing'
       let dragged = false
@@ -1138,7 +1131,7 @@ export function useAirportEditor(ctx) {
         rebuildAptEditData()
       }
       const onUp = () => {
-        try { ctx.mapboxMap.dragPan.enable() } catch {} 
+        try { ctx.mapboxMap.dragPan.enable() } catch { /* ignore */ }
         const dragName = aptEdit.drag ? aptEdit.drag.name : null
         aptEdit.drag = null
         canvas.style.cursor = ''
@@ -1563,8 +1556,8 @@ export function useAirportEditor(ctx) {
       const cur = pts[i]
       const px = i > 0 ? pts[i - 1][0] : cur[0], py = i > 0 ? pts[i - 1][1] : cur[1]
       const nx = i < pts.length - 1 ? pts[i + 1][0] : cur[0], ny = i < pts.length - 1 ? pts[i + 1][1] : cur[1]
-      let d1x = cur[0] - px, d1y = cur[1] - py
-      let d2x = nx - cur[0], d2y = ny - cur[1]
+      const d1x = cur[0] - px, d1y = cur[1] - py
+      const d2x = nx - cur[0], d2y = ny - cur[1]
       const m1 = Math.hypot(d1x, d1y) || 1e-9, m2 = Math.hypot(d2x, d2y) || 1e-9
       const u1x = d1x / m1, u1y = d1y / m1, u2x = d2x / m2, u2y = d2y / m2
       const n1x = -u1y, n1y = u1x, n2x = -u2y, n2y = u2x   // left 法线
@@ -1723,7 +1716,7 @@ export function useAirportEditor(ctx) {
     const [e0, e1] = runwayEndpoints(corners)
     const lat = (e0[1] + e1[1]) / 2
     const [mLon, mLat] = mToDeg(1, lat)
-    let dxEastM = (e1[0] - e0[0]) / mLon, dyNorthM = (e1[1] - e0[1]) / mLat
+    const dxEastM = (e1[0] - e0[0]) / mLon, dyNorthM = (e1[1] - e0[1]) / mLat
     const len = Math.hypot(dxEastM, dyNorthM) || 1
     const cosA = dxEastM / len, sinA = dyNorthM / len   // 方向余弦（无量纲）
     const vx = -sinA * mLon, vy = cosA * mLat   // 垂直方向每米度偏移
@@ -1910,7 +1903,7 @@ export function useAirportEditor(ctx) {
         if (!feat) return
         const oldName = feat.properties.name
         if (!oldName) return
-        try { ctx.mapboxMap.dragPan.disable() } catch {} 
+        try { ctx.mapboxMap.dragPan.disable() } catch { /* ignore */ }
         // 直接定位机场源中被拖的标签 feature 引用（按 name+坐标精确找，兜底取最近同名），
         // 拖动时直接改其坐标，最可靠（不依赖后续坐标匹配）
         const aptSrc = ctx.mapboxMap.getSource(`apt-${aptEdit.icao}`)
@@ -1959,7 +1952,7 @@ export function useAirportEditor(ctx) {
           lastCoord = to
         }
         const onUp = () => {
-          try { ctx.mapboxMap.dragPan.enable() } catch {} 
+          try { ctx.mapboxMap.dragPan.enable() } catch { /* ignore */ }
           ctx.mapboxMap.off('mousemove', onMove)
           ctx.mapboxMap.off('mouseup', onUp)
           canvas.style.cursor = ''
@@ -2101,7 +2094,7 @@ export function useAirportEditor(ctx) {
           }
         }
         if (!target) return
-        try { ctx.mapboxMap.dragPan.disable() } catch {} 
+        try { ctx.mapboxMap.dragPan.disable() } catch { /* ignore */ }
         canvas.style.cursor = 'grabbing'
         const onMove = (ev) => {
           target.geometry.coordinates = [ev.lngLat.lng, ev.lngLat.lat]
@@ -2109,7 +2102,7 @@ export function useAirportEditor(ctx) {
           src.setData(src._data)
         }
         const onUp = () => {
-          try { ctx.mapboxMap.dragPan.enable() } catch {} 
+          try { ctx.mapboxMap.dragPan.enable() } catch { /* ignore */ }
           canvas.style.cursor = ''
           src.setData(src._data)
           aptEditSave()
@@ -2150,7 +2143,7 @@ export function useAirportEditor(ctx) {
           pos['e' + end] = startAnchor
         }
         if (!startAnchor) return
-        try { ctx.mapboxMap.dragPan.disable() } catch {} 
+        try { ctx.mapboxMap.dragPan.disable() } catch { /* ignore */ }
         canvas.style.cursor = 'grabbing'
         // 纯增量平移：每次按鼠标相对位移平移整组，避免基准累计导致的无限漂移
         let lastLng = e.lngLat.lng, lastLat = e.lngLat.lat
@@ -2171,7 +2164,7 @@ export function useAirportEditor(ctx) {
           }
         }
         const onUp = () => {
-          try { ctx.mapboxMap.dragPan.enable() } catch {} 
+          try { ctx.mapboxMap.dragPan.enable() } catch { /* ignore */ }
           canvas.style.cursor = ''
           src.setData(src._data)
           aptEditSave()
@@ -2273,37 +2266,6 @@ export function useAirportEditor(ctx) {
     rebuildAptEditData()
   }
 
-  /** 在地图指定屏幕位置显示内联编辑输入框（自动聚焦，Enter 确认 / Esc 取消 / 失焦确认） */
-  function showInlineEdit(x, y, initialValue, onConfirm) {
-    removeInlineEdit()
-    const wrap = document.createElement('div')
-    wrap.className = 'apt-inline-edit'
-    wrap.style.left = x + 'px'
-    wrap.style.top = y + 'px'
-    const input = document.createElement('input')
-    input.type = 'text'
-    input.value = initialValue
-    wrap.appendChild(input)
-    ctx.mapContainer.value?.appendChild(wrap)
-    aptInlineEditEl = wrap
-    // 延迟聚焦保证光标出现
-    setTimeout(() => { input.focus(); input.select() }, 30)
-    const commit = () => {
-      const v = input.value.trim()
-      removeInlineEdit()
-      if (v && v !== initialValue) onConfirm(v)
-    }
-    input.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter') commit()
-      else if (ev.key === 'Escape') removeInlineEdit()
-      ev.stopPropagation()
-    })
-    input.addEventListener('blur', commit)
-    input.addEventListener('dblclick', (ev) => ev.stopPropagation())
-    input.addEventListener('click', (ev) => ev.stopPropagation())
-    input.addEventListener('mousedown', (ev) => ev.stopPropagation())
-  }
-
   function removeInlineEdit() {
     if (aptInlineEditEl) {
       aptInlineEditEl.remove()
@@ -2329,9 +2291,9 @@ export function useAirportEditor(ctx) {
     if (!ctx.mapboxMap) return
     const srcId = `apt-edit-${aptEdit.icao || ''}`
     for (const l of ['-line', '-handle', '-curve-arrow']) {
-      try { if (ctx.mapboxMap.getLayer(srcId + l)) ctx.mapboxMap.removeLayer(srcId + l) } catch {}
+      try { if (ctx.mapboxMap.getLayer(srcId + l)) ctx.mapboxMap.removeLayer(srcId + l) } catch { /* ignore */ }
     }
-    try { if (ctx.mapboxMap.getSource(srcId)) ctx.mapboxMap.removeSource(srcId) } catch {}
+    try { if (ctx.mapboxMap.getSource(srcId)) ctx.mapboxMap.removeSource(srcId) } catch { /* ignore */ }
   }
 
   /** 当前是否处于机场编辑模式（供地图引擎判断是否暂停 3D 自转） */

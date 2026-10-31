@@ -60,7 +60,7 @@ onMounted(async () => {
     const r = await api.get('/forum/boards')
     const all = r.data || []
     board.value = all.find(b => b.id === Number(boardId))
-  } catch {}
+  } catch { /* ignore */ }
   load()
 })
 
@@ -70,7 +70,7 @@ async function load() {
     const r = await api.get('/forum/posts', { params: { boardId: route.params.boardId, page: page.value } })
     posts.value = r.data?.items || []
     total.value = r.data?.total || 0
-  } catch {} finally {
+  } catch { /* ignore */ } finally {
     loading.value = false
   }
 }

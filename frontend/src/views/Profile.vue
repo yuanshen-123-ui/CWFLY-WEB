@@ -133,8 +133,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '@/store/user'
 import { navLayout, narrowScreen, setNavLayout } from '@/utils/navLayout'
-import { profileApi } from '@/api'
-import api from '@/api'
+import api, { profileApi } from '@/api'
 import Skeleton from '@/components/base/Skeleton.vue'
 import UserAvatar from '@/components/base/UserAvatar.vue'
 import UserTag from '@/components/base/UserTag.vue'
@@ -199,7 +198,7 @@ onMounted(async () => {
     bind.email = res.data.email || ''
     bind.qq = res.data.qq || ''
     applyBg(res.data.bgImage)
-  } catch {} finally {
+  } catch { /* ignore */ } finally {
     loading.value = false
   }
 })
@@ -280,7 +279,7 @@ async function sendVerifyCode() {
   codeSending.value = true
   bindMsg.value = ''
   try {
-    const res = await api.post('/profile/send-verify', { email: bind.email })
+    await api.post('/profile/send-verify', { email: bind.email })
     bindMsg.value = '验证码已发送'
     bindMsgType.value = 'ok'
     showVerifyInput.value = true

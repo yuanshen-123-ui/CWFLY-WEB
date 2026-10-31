@@ -277,3 +277,18 @@ ls dist/assets | head -n 5
 | CI 工作流 | `.github/workflows/frontend-ci.yml` 已就位（Node 20/22 矩阵） |
 
 > 说明：以上为文档编写时的快照；接手后请把本节替换为最近一次全量验证的实际输出（命令 + 结果 + 日期），保持文档可追溯。
+
+---
+
+## 收口补充（2026-10-31 晚）
+
+- **ESLint 门禁已扩到全站**：`npm run lint` = `eslint src --max-warnings=0`，覆盖 149 个源文件，当前 **0 error / 0 warning**。
+  - 历史存量 113 条已清理（空 catch 补注释、删死代码、`let→const`、合并重复 import、重复对象键等），业务行为未改。
+  - 仅保留 3 处最小定向豁免：`useOnlineMapInteraction.js`（迁移遗留，no-empty/no-unused-vars）、`mapCore.js`（GCJ-02 常量 no-loss-of-precision）、`MeetingRecords.vue`（历史 `clearInterval(timer)` 未定义变量，需业务立项修复）。
+- **新增测试**（+4 文件 / +79 用例）：
+  - `src/utils/__tests__/mapCore.test.js`（19）：GCJ-02 真实换算/边界、图层定义、`isMapboxConfigured()`。
+  - `src/utils/__tests__/mapboxHealth.test.js`（23）：token 占位符判定、401/403 识别、会话失效标记与隐私模式降级、回退决策优先级。
+  - `src/composables/__tests__/useOnlineMapData.test.js`（13）：加载/失败静默、5s 轮询边界、stop 清理、卸载后不再请求。
+  - `src/composables/__tests__/useAppNav.test.js`（24）：权限过滤、最长前缀高亮、手风琴展开/保留手动展开。
+- **Vitest include**：`src/utils/__tests__/**/*.test.js` + `src/composables/__tests__/**/*.test.js`。
+- **地图 3D 降级**：无有效 Mapbox 令牌时自动回退 2D 高德（只回退一次，`sessionStorage['cw_mapbox_invalid']`），3D 入口置灰；纯逻辑在 `src/utils/mapboxHealth.js`，有单测覆盖。

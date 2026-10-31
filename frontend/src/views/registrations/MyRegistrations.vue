@@ -48,7 +48,7 @@ const filteredRegs = computed(() => {
 })
 
 onMounted(async () => {
-  try { const r = await api.get('/events/my-registrations'); registrations.value = r.data || [] } catch {}
+  try { const r = await api.get('/events/my-registrations'); registrations.value = r.data || [] } catch { /* ignore */ }
 })
 
 async function cancelReg(r) {

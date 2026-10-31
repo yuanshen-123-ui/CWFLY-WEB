@@ -88,7 +88,7 @@ async function load() {
   try {
     const r = await api.get('/training/schedules', { params: { date: date.value } })
     schedules.value = r.data || []
-  } catch {}
+  } catch { /* ignore */ }
 }
 
 async function submitBook() {

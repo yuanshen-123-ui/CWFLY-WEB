@@ -4,6 +4,7 @@
       :layers3d="layers3D"
       :flat-layers="flatLayers"
       :active-layer="activeLayer"
+      :mapbox-available="mapboxAvailable"
       @select-layer="selectLayer"
     />
     <div v-if="loading" class="map-loading">
@@ -99,7 +100,7 @@ const {
   bindShortcuts,
   unbindShortcuts,
 } = interaction.editor
-const { isDevToolActive } = interaction
+const { isDevToolActive, mapboxAvailable } = interaction
 
 /** 切换地图源：只更新 activeLayer，真实引擎切换由 interaction 内 watch(activeLayer) 完成 */
 function selectLayer(id) { activeLayer.value = id }

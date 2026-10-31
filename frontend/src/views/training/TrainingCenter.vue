@@ -47,8 +47,8 @@ const records = ref([])
 const enrolling = ref(null)
 
 onMounted(async () => {
-  try { const r = await api.get('/training/courses'); courses.value = r.data || [] } catch {}
-  try { const r = await api.get('/training/records'); records.value = r.data || [] } catch {}
+  try { const r = await api.get('/training/courses'); courses.value = r.data || [] } catch { /* ignore */ }
+  try { const r = await api.get('/training/records'); records.value = r.data || [] } catch { /* ignore */ }
 })
 
 function formatTime(t) {

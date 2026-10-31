@@ -226,8 +226,8 @@ function parseEventTime(e) {
   const t = (e.time || '').trim()
   if (!d) return Infinity
   let ds = d
-  if (/^\d{1,2}[\/-]\d{1,2}$/.test(d)) {
-    const p = d.split(/[\/-]/)
+  if (/^\d{1,2}[-/]\d{1,2}$/.test(d)) {
+    const p = d.split(/[-/]/)
     ds = `${new Date().getFullYear()}-${p[0]}-${p[1]}`
   }
   const dt = new Date(`${ds}${t ? 'T' + t : 'T00:00'}`)
@@ -355,8 +355,8 @@ function openCtrlDialog() {
 }
 
 onMounted(async () => {
-  try { const r = await eventsApi.list(); events.value = r.data } catch {}
-  try { const r = await flightplanApi.fsdOnline(); pilots.value = r.data || [] } catch {}
+  try { const r = await eventsApi.list(); events.value = r.data } catch { /* ignore */ }
+  try { const r = await flightplanApi.fsdOnline(); pilots.value = r.data || [] } catch { /* ignore */ }
 })
 
 async function submitJoin() {

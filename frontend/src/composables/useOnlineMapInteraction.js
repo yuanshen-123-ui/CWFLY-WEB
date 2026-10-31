@@ -9,7 +9,11 @@
  *  - 气象雷达（OpenWeatherMap 降水瓦片）在 2D/3D 双引擎的挂载与移除；
  *  - 主题跟随（html[data-theme] MutationObserver）：AMap 底图 style、Mapbox fog 渐变、
  *    机场标注颜色、图标重载；
- *  - 开发者工具光标定位（光标经纬度 readout、双击复制、十字准星光标）。
+ *  - 开发者工具光标定位（光标经纬度 readout、双击复制、十字准星光标）；
+ *  - Mapbox 3D 优雅降级：未配置令牌 / 本次会话已判定令牌失效时直接禁用 3D 与 Mapbox 卫星源、
+ *    提示后走 2D 高德；运行期捕获 Mapbox error（style 401 / invalid access token）后
+ *    **首次失败自动回退 2D 且只回退一次**（sessionStorage 标记 cw_mapbox_invalid），
+ *    回退时清理 Mapbox 实例/监听/覆盖物，不影响 2D 机组/雷达/机场编辑。
  *
  * 入参 cfg（由页面提供，均为响应式引用，保证与页面/数据层共享同一份状态）：
  *  - cfg.mapContainer  地图容器元素 ref
@@ -25,6 +29,7 @@
  *  - start() / stop()   挂载启动 / 卸载清理（页面 onMounted / onUnmounted 调用）
  *  - onDataUpdate()     数据刷新后的统一重绘（原 loadPilots 内的渲染分支）
  *  - isDevToolActive()  模板十字准星 class 判定
+ *  - mapboxAvailable    3D/Mapbox 源是否可用的响应式标志（页面传给 MapLayerSwitcher 置灰）
  *  - editor             机场编辑器实例（含工具栏状态、提交/取消、快捷键绑定）
  *
  * 副作用与清理（stop() 内统一执行）：
@@ -34,10 +39,21 @@
  *  - window.__cwMap / window.__cwMap3D 调试引用置空；
  *  - 机场地面图层缓存（ground.dispose()）与编辑器 DOM/timer（editor.dispose()）。
  */
-import { watch } from 'vue'
+import { ref, watch } from 'vue'
 import { isDarkTheme } from '@/utils/theme'
 import { useMapSettingsStore } from '@/store/mapSettings'
 import { createAircraft3DLayer, updateAircraft3D, destroyAircraft3D } from '@/utils/aircraft3d'
+import {
+  MAPBOX_FALLBACK_LAYER,
+  MAPBOX_INVALID_MESSAGE,
+  MAPBOX_LOAD_FAILED_MESSAGE,
+  MAPBOX_UNAVAILABLE_MESSAGE,
+  isMapboxDependentLayer,
+  isMapboxMarkedInvalid,
+  isMapboxTokenError,
+  markMapboxInvalid,
+  resolveMapboxFallback,
+} from '@/utils/mapboxHealth'
 import {
   AMAP_KEY,
   AMAP_SECURITY_CODE,
@@ -53,6 +69,7 @@ import {
   BOTTOM_LAT,
   TOP_LAT,
   is3D,
+  isMapboxConfigured,
   toGcj02,
 } from '@/components/map/mapCore'
 import { useAirportGroundLayers } from './useAirportGroundLayers'
@@ -94,6 +111,14 @@ export function useOnlineMapInteraction(cfg) {
   let boundaryLayers = []
   let mapboxMarkers = []    // Mapbox 标记（HTML Marker）
   let mapboxSources = []    // Mapbox 已添加的 source 名（用于清理）
+
+  // ===== Mapbox 3D 可用性与降级状态 =====
+  // mapboxAvailable：令牌可用且本次会话未被判定失效；页面把它传给 MapLayerSwitcher 置灰 3D 分组
+  // 初始值同步计算，避免首帧渲染时 3D 分组短暂显示为可用
+  const mapboxAvailable = ref(isMapboxConfigured() && !isMapboxMarkedInvalid())
+  let mapboxErrorHandler = null      // 绑定在当前 Mapbox 实例上的 error 事件处理器（回退时解绑）
+  let mapboxFallbackDone = false     // 本次页面生命周期是否已自动回退（保证只回退一次）
+  let mapErrorTimer = null           // 降级提示自动消失定时器（避免长期遮挡地图）
 
   // ===== 机场地面图层 / 机场编辑器：共享同一编排上下文（getter 保证读到当前引擎实例）=====
   let ground = null
@@ -285,11 +310,21 @@ export function useOnlineMapInteraction(cfg) {
   // 初始化 Mapbox 3D 地球
   async function initMapbox3D() {
     if (!mapContainer.value) return
+    // ===== 3D 可用性前置检查：未配置令牌 / 本次会话已判定失效 → 不加载 Mapbox，直接降级 2D =====
+    const availability = refreshMapboxAvailability()
+    if (!availability.available) {
+      mapboxFallbackDone = true
+      fallbackTo2D({ message: availability.message })
+      return
+    }
     const myToken = ++engineToken
     try {
       await loadMapboxGL()
     } catch {
       loading.value = false
+      // 脚本加载失败（本地/CDN 均不可达）：回退 2D；不写 sessionStorage（刷新后允许重试 3D）
+      mapboxFallbackDone = true
+      fallbackTo2D({ message: MAPBOX_LOAD_FAILED_MESSAGE })
       return
     }
     // await 期间可能已切换引擎(如切到高德)：令牌过期则放弃创建 Mapbox
@@ -314,6 +349,9 @@ export function useOnlineMapInteraction(cfg) {
     mapboxMap = thisMap
     // 拖动结束恢复开发者工具光标(十字准星)
     thisMap.on('dragend', applyDevCursor)
+    // 运行期错误监听：style 401 / invalid access token → 首次失败自动回退 2D 高德（只回退一次）
+    mapboxErrorHandler = handleMapboxError
+    thisMap.on('error', mapboxErrorHandler)
     const tokenAtCreate = myToken
     thisMap.on('load', () => {
       // 若地图在加载期间已被切换/移除（令牌过期），放弃本次 load 初始化
@@ -366,6 +404,17 @@ export function useOnlineMapInteraction(cfg) {
 
   // 销毁当前地图引擎并切换到目标引擎
   function switchEngine() {
+    // ===== 3D 降级守卫：3D / Mapbox 卫星在不可用时一律回到 2D 高德 =====
+    // （正常路径由 MapLayerSwitcher 置灰拦截，这里兜住程序化切换/旧链接等入口）
+    if (isMapboxDependentLayer(activeLayer.value) && !mapboxAvailable.value) {
+      const availability = refreshMapboxAvailability()
+      if (!availability.available) {
+        mapboxFallbackDone = true
+        fallbackTo2D({ message: availability.message })
+        return
+      }
+      mapboxAvailable.value = true
+    }
     // 递增令牌：使进行中的 async 初始化(如 await loadMapboxGL 后)失效
     const myToken = ++engineToken
     const target3D = is3D(activeLayer.value)
@@ -414,6 +463,7 @@ export function useOnlineMapInteraction(cfg) {
       markers = []
       boundaryLayers = []
       if (mapboxMap) {
+        unbindMapboxError()
         mapboxMap.remove()
         mapboxMap = null
         window.__cwMap3D = null
@@ -426,6 +476,7 @@ export function useOnlineMapInteraction(cfg) {
     } else {
       // 2D 模式：销毁 Mapbox，初始化 AMap
       if (mapboxMap) {
+        unbindMapboxError()
         mapboxMap.remove()
         mapboxMap = null
         window.__cwMap3D = null
@@ -473,6 +524,77 @@ export function useOnlineMapInteraction(cfg) {
       try { if (mapboxMap.getSource(name)) mapboxMap.removeSource(name) } catch {}
     }
     mapboxSources = []
+  }
+
+  // ===== Mapbox 3D 可用性判定 / 降级 =====
+
+  /** 重新计算 3D 可用性（有令牌 & 本次会话未被判定失效），同步到 mapboxAvailable 并返回决策结果 */
+  function refreshMapboxAvailability() {
+    const result = resolveMapboxFallback({ token: MAPBOX_TOKEN })
+    mapboxAvailable.value = result.available
+    return result
+  }
+
+  /** 显示可自动消失的降级提示（写 mapError，6s 后清空，避免永久遮挡地图中心） */
+  function notifyMapboxFallback(message) {
+    mapError.value = message
+    if (mapErrorTimer) clearTimeout(mapErrorTimer)
+    mapErrorTimer = setTimeout(() => {
+      mapErrorTimer = null
+      // 仅在仍是本条提示时清空，避免覆盖其它更严重的错误文案
+      if (mapError.value === message) mapError.value = ''
+    }, 6000)
+  }
+
+  /** 解绑当前 Mapbox 实例的 error 监听（幂等；实例销毁前必须调用，避免残留闭包） */
+  function unbindMapboxError() {
+    if (mapboxErrorHandler && mapboxMap) {
+      try { mapboxMap.off('error', mapboxErrorHandler) } catch { /* 实例可能已销毁 */ }
+    }
+    mapboxErrorHandler = null
+  }
+
+  /** 销毁 Mapbox 实例并解绑其监听/覆盖物/3D 资源（降级回 2D 与常规引擎切换共用） */
+  function disposeMapbox() {
+    unbindMapboxError()
+    mapboxStopSpin()
+    destroyAircraft3D()
+    if (mapboxMap) {
+      try { clearMapboxOverlays() } catch { /* 忽略清理异常，继续销毁 */ }
+      try { mapboxMap.remove() } catch { /* 忽略销毁异常 */ }
+      mapboxMap = null
+      window.__cwMap3D = null
+    }
+    mapboxMarkers = []
+    mapboxSources = []
+    ground.resetAirportLayers()
+  }
+
+  /**
+   * 首次判定 3D 不可用：禁用 3D/Mapbox 源 + 提示 + 销毁 Mapbox + 切回 2D 高德。
+   * 2D 引擎初始化交给 watch(activeLayer) → switchEngine（保持单一初始化路径，避免重复注入 AMap SDK）。
+   * @param {{ message?: string, persist?: boolean }} [options]
+   *   persist=true 时写 sessionStorage 失效标记（令牌类错误，刷新后不再重试 3D）
+   */
+  function fallbackTo2D(options = {}) {
+    const { message = MAPBOX_UNAVAILABLE_MESSAGE, persist = false } = options
+    mapboxAvailable.value = false
+    if (persist) markMapboxInvalid()
+    notifyMapboxFallback(message)
+    disposeMapbox()
+    loading.value = false
+    if (isMapboxDependentLayer(activeLayer.value)) {
+      // 触发 watch(activeLayer) → switchEngine → 初始化 AMap 2D
+      activeLayer.value = MAPBOX_FALLBACK_LAYER
+    }
+  }
+
+  /** Mapbox 运行期错误：仅令牌/鉴权类（style 401、invalid access token 等）触发一次自动回退 */
+  function handleMapboxError(event) {
+    if (mapboxFallbackDone) return
+    if (!isMapboxTokenError(event?.error ?? event)) return
+    mapboxFallbackDone = true
+    fallbackTo2D({ message: MAPBOX_INVALID_MESSAGE, persist: true })
   }
 
   // ===== Mapbox 3D 机组 / 边界渲染 =====
@@ -1058,8 +1180,28 @@ export function useOnlineMapInteraction(cfg) {
     }
   }
 
-  /** 页面挂载后启动：按当前 activeLayer 初始化引擎，并监听主题变化 */
+  /** 注册主题监听（html[data-theme] 变化 → 深浅底图 / 大气 / 图标 / 标注颜色） */
+  function startThemeObserver() {
+    // 监听主题(html[data-theme])变化, 动态切换高德深浅底图
+    themeObserver = new MutationObserver(applyMapTheme)
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+  }
+
+  /** 页面挂载后启动：先做 3D 可用性前置检查，再按当前 activeLayer 初始化引擎，并监听主题变化 */
   function start() {
+    // ===== 3D 可用性前置检查：无令牌 / 本次会话已判定失效 → 不加载 Mapbox，直接走 2D =====
+    const availability = refreshMapboxAvailability()
+    if (!availability.available) {
+      if (isMapboxDependentLayer(activeLayer.value)) {
+        mapboxFallbackDone = true
+        // activeLayer → 'gaode' 后由 watch(activeLayer) → switchEngine 完成 2D 初始化（保持单一初始化路径）
+        fallbackTo2D({ message: availability.message })
+        startThemeObserver()
+        return
+      }
+      // 当前已是 2D 源：仅提示 3D 不可用，继续正常初始化 2D
+      notifyMapboxFallback(availability.message)
+    }
     // 默认 Mapbox3D 地球：优先加载 Mapbox GL；AMap 仅切换到平面源时再加载
     if (activeLayer.value === 'mapbox3d') {
       initMapbox3D()
@@ -1072,15 +1214,17 @@ export function useOnlineMapInteraction(cfg) {
     } else {
       loadAMap(initMap)
     }
-    // 监听主题(html[data-theme])变化, 动态切换高德深浅底图
-    themeObserver = new MutationObserver(applyMapTheme)
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    startThemeObserver()
   }
 
   /** 页面卸载清理：解绑监听 / 断开主题观察 / 销毁覆盖物与引擎 / 释放缓存与编辑态 */
   function stop() {
     unbindCursorLocate()
+    // Mapbox 运行期错误监听与降级提示定时器
+    unbindMapboxError()
+    if (mapErrorTimer) { clearTimeout(mapErrorTimer); mapErrorTimer = null }
     if (themeObserver) { themeObserver.disconnect(); themeObserver = null }
+
     if (mapboxMap) {
       clearMapboxOverlays()
       mapboxMap.remove()
@@ -1102,6 +1246,7 @@ export function useOnlineMapInteraction(cfg) {
     stop,
     onDataUpdate,
     isDevToolActive,
+    mapboxAvailable,
     editor,
   }
 }

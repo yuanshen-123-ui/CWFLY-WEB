@@ -28,11 +28,9 @@
 
 <script setup>
 import { useRouter, useRoute } from 'vue-router'
-import { useUserStore } from '@/store/user'
 
 const router = useRouter()
 const route = useRoute()
-const user = useUserStore()
 
 function close() {
   router.push('/dashboard')

@@ -48,7 +48,7 @@ onMounted(async () => {
     const r = await api.get('/forum/posts/' + route.params.postId)
     post.value = r.data
     replies.value = r.data?.replies || []
-  } catch {}
+  } catch { /* ignore */ }
 })
 
 function formatTime(t) {

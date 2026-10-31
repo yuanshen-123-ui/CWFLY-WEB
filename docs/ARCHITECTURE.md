@@ -461,3 +461,9 @@ Vite 构建（`frontend/vite.config.js`）：
 | 新增样式 | 令牌进 `styles/tokens.css`，规则进对应分层文件；页面局部样式用 scoped |
 | 新增重型能力 | 路由级 `import()` 隔离 + 必要时在 `vite.config.js` 的 `manualChunks` 增加 vendor 规则 |
 | 新增实时事件 | 与后端 `backend-py/app/sockets/` 对齐事件名 → `App.vue` 或页面订阅 → 本文件第九节更新契约 |
+
+## 地图 3D 降级策略（收口新增）
+
+- 令牌来源：`VITE_MAPBOX_TOKEN` → `src/components/map/mapCore.js` 的 `MAPBOX_TOKEN`，`isMapboxConfigured()` 判定是否可用。
+- 纯逻辑：`src/utils/mapboxHealth.js`（token 判定 / 401&403 识别 / sessionStorage 失效标记 / 回退决策），单测 `src/utils/__tests__/mapboxHealth.test.js`。
+- 运行时：`useOnlineMapInteraction.js` 初始化前检查；Mapbox `error`（401/403/invalid token）首次触发即回退 `gaode` 2D，清理实例与监听，写会话标记避免同会话反复重试；`MapLayerSwitcher` 按 `mapboxAvailable` 置灰 3D 入口。

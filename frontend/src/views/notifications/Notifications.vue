@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="notifications fade-in">
     <div class="page-header flex justify-between items-start flex-wrap gap-md">
       <div>
@@ -55,11 +55,11 @@ function formatTime(t) {
 
 async function markRead(n) {
   if (n.read) return
-  try { await api.put('/notifications/read/' + n.id); n.read = true; unreadCount.value-- } catch {}
+  try { await api.put('/notifications/read/' + n.id); n.read = true; unreadCount.value-- } catch { /* ignore */ }
 }
 
 async function markAllRead() {
-  try { await api.put('/notifications/read-all'); notifications.value.forEach(n => n.read = true); unreadCount.value = 0 } catch {}
+  try { await api.put('/notifications/read-all'); notifications.value.forEach(n => n.read = true); unreadCount.value = 0 } catch { /* ignore */ }
 }
 </script>
 

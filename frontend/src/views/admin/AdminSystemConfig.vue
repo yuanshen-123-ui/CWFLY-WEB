@@ -217,7 +217,7 @@ onMounted(() => { loadBans(); loadIpGroupSummary() })
 
 async function loadBans() {
   bansLoading.value = true
-  try { const r = await adminApi.ipBans(); bans.value = r.data || [] } catch {} finally {
+  try { const r = await adminApi.ipBans(); bans.value = r.data || [] } catch { /* ignore */ } finally {
     bansLoading.value = false
   }
 }

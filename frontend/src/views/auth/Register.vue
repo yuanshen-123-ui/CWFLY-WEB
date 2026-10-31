@@ -95,7 +95,6 @@ watch(agree, (v) => { if (v) agreeError.value = '' })
 let cidCheckTimer = null
 
 // 数字验证
-const captchaExpr = ref('')
 const sendingCode = ref(false)
 const codeCooldown = ref(0)
 let cooldownTimer = null
@@ -178,7 +177,7 @@ function onCidInput() {
         const data = await res.json()
         if (data.exists) errors.cid = '该 CID 已被注册'
         else { errors.cid = ''; cidOk.value = true }
-      } catch {}
+      } catch { /* ignore */ }
     }, 500)
   }
 }

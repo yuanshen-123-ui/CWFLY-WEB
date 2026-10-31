@@ -8,9 +8,9 @@
  *    既有组件历史上会产生 800+ 条纯格式告警，改造需动业务源码且会和日常提交冲突。
  *    格式化交给编辑器/Prettier，ESLint 只守正确性 —— 因此新代码从第一天起就是 0 error 0 warning。
  * 3. 存量豁免采用「按文件精确 override + TODO(lint-freeze) 注释」，不做全局放宽：
- *    - 重构期间从 OnlineMap.vue / AppLayout.vue 机械迁移出来的历史代码（逻辑未改）；
- *    - 重构前就已存在的历史文件。
- *    新写的 base 组件、layout/map 子组件、composables 与全部 utils 均不在豁免范围。
+ *    门禁已覆盖 src 全量（含 views/router/store/api/workers/App.vue/main.js），
+ *    存量问题已按「行为等价」清理；仅剩两个并行写域中的文件保留最小定向豁免，
+ *    CDN 注入的全局对象用 globals 声明而不是关闭 no-undef。
  * 4. 测试文件显式 import { describe, it, expect, vi } from 'vitest'，不注入测试全局。
  */
 import js from '@eslint/js'
@@ -83,12 +83,7 @@ export default [
   },
 
   // ===== 存量豁免（先堵新问题）=====
-  // TODO(lint-freeze): 重构期从 OnlineMap.vue 机械迁移出来的 composables，
-  // 迁移只搬位置、不改逻辑，因此把随迁移带过来的历史规则问题做定向关闭；
   // 高德/Mapbox 是 CDN 注入的全局对象，用 globals 声明而不是关闭 no-undef。
-  // 冻结后已复评：useOnlineMapData.js 已迁移干净、TopBar.vue 已把 v-html 移入
-  // 原生 <span>（不再触发 no-v-text-v-html-on-component），两者均不在本段豁免。
-  // 剩余 3 个 composables 的清理由 Lead 决定，清理后删除本段。
   {
     files: [
       'src/composables/useAirportEditor.js',
@@ -101,32 +96,24 @@ export default [
         mapboxgl: 'readonly',
       },
     },
+  },
+
+  {
+    // TODO(lint-freeze): useOnlineMapInteraction.js 位于并行地图拆分的写域（map-agent 正在编辑），
+    // 本任务不触碰该文件；其存量 no-empty/no-unused-vars 由该写域收口后删除本条。
+    files: ['src/composables/useOnlineMapInteraction.js'],
     rules: {
       'no-empty': 'off',
       'no-unused-vars': 'off',
-      'prefer-const': 'off',
     },
   },
 
   {
-    // TODO(lint-freeze): mapCore.js 是从 OnlineMap.vue 抽出的地图核心逻辑（历史大整数常量）。
+    // TODO(lint-freeze): mapCore.js 是从 OnlineMap.vue 抽出的地图核心逻辑，含历史大整数常量
+    // （GCJ-02 椭球系数等），保留 no-loss-of-precision 定向关闭；其余规则已全部通过。
     files: ['src/components/map/mapCore.js'],
     rules: {
       'no-loss-of-precision': 'off',
-      'no-unused-vars': 'off',
-      'prefer-const': 'off',
-    },
-  },
-
-  {
-    // TODO(lint-freeze): legacy file migrated from earlier refactor
-    // aircraft3d.js 是重构前就存在的 Mapbox 3D 机队历史代码（不是本轮新增），
-    // 存量未使用变量/可 const 化在本次质量任务中不清理（禁止修改业务源码）。
-    // 仅定向关闭这两条最小规则，不做 src/utils 目录级豁免。
-    files: ['src/utils/aircraft3d.js'],
-    rules: {
-      'no-unused-vars': 'off',
-      'prefer-const': 'off',
     },
   },
 ]

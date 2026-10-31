@@ -207,8 +207,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { adminApi } from '@/api'
-import api from '@/api'
+import api, { adminApi } from '@/api'
 
 const events = ref([])
 // 活动列表排序：报名中置顶；筹备中/已结束 按时间逆序（与 Events.vue 一致）
@@ -225,16 +224,6 @@ const editingItem = ref(null)
 // 席位 → 默认等级映射
 const RATING_MAP = {
   DEL: 'S1', GND: 'S1', TWR: 'S2', APP: 'S3', CTR: 'C1',
-}
-
-function parsePositions(json) {
-  if (!json) return []
-  try {
-    const parsed = JSON.parse(json)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return [{ type: json }]
-  }
 }
 
 // ---- 电子表格式席位编辑 ----
@@ -456,22 +445,8 @@ async function submitForm() {
   } catch (e) { alert(e.message) }
 }
 
-async function delEvent(e) {
-  if (!confirm(`确定删除活动"${e.title}"？`)) return
-  try {
-    await adminApi.deleteEvent(e.id)
-    events.value = events.value.filter(x => x.id !== e.id)
-  } catch (e) { alert(e.message) }
-}
-
 // 报名管理
 const regTarget = ref(null)
-async function openRegs(e) {
-  try {
-    const res = await adminApi.eventRegs(e.id)
-    regTarget.value = res.data
-  } catch (err) { alert('加载报名失败: ' + err.message) }
-}
 
 async function cancelReg(r) {
   if (!confirm(`确定取消 ${r.user?.username || r.userId} 的报名？`)) return

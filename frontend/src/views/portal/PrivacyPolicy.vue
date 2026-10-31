@@ -8,7 +8,7 @@
 
       <div class="card p-lg mb-lg legal__meta">
         <p class="text-secondary" style="line-height:1.8;margin:0;">
-          <strong>最后更新：</strong>2026 年 10 月 31 日　
+          <strong>最后更新：</strong>2026 年 10 月 31 日
           <strong>生效日期：</strong>2026 年 10 月 31 日
         </p>
         <p class="text-sm text-muted mt-sm" style="margin:0;">

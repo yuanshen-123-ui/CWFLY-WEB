@@ -53,7 +53,7 @@ onMounted(async () => {
     const r = await api.get('/training/exams/' + route.params.examId)
     exam.value = r.data
     answers.value = new Array(r.data?.questions?.length || 0).fill(-1)
-  } catch {}
+  } catch { /* ignore */ }
 })
 
 async function submitExam() {

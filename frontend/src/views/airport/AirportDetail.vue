@@ -78,7 +78,7 @@ onMounted(async () => {
   try {
     const r = await api.get('/content/' + route.params.icao.toUpperCase())
     airport.value = r.data
-  } catch {}
+  } catch { /* ignore */ }
 })
 </script>
 

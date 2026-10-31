@@ -85,7 +85,6 @@ const router = useRouter()
 const userStore = useUserStore()
 const form = ref({ cid: '', password: '' })
 const err = ref('')
-const loading = ref(false)
 const status = ref('idle')
 const fb = useFieldFeedback(['cid', 'password'])
 let successTimer = null

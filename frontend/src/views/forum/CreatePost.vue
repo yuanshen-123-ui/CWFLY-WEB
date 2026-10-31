@@ -41,7 +41,7 @@ const content = ref('')
 const loading = ref(false)
 
 onMounted(async () => {
-  try { const r = await api.get('/forum/boards'); boards.value = r.data || [] } catch {}
+  try { const r = await api.get('/forum/boards'); boards.value = r.data || [] } catch { /* ignore */ }
 })
 
 async function submit() {

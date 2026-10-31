@@ -52,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { adminApi } from '@/api'
 
 const ratingLevels = [
@@ -63,29 +63,12 @@ const ratingLevels = [
   { value: 12, name: '超级管理员', class: 'rating-admin', desc: '全部权限' },
 ]
 
-const users = ref([])
-const editing = ref(null)
-const editVal = ref(0)
-
+// 本页只展示静态权限矩阵；历史遗留的 users 拉取请求保持原样，其响应原本就未被使用。
 onMounted(async () => {
   try {
-    const res = await adminApi.users()
-    users.value = res.data
+    await adminApi.users()
   } catch { /* ignore */ }
 })
-
-function startEdit(u) {
-  editing.value = u.cid
-  editVal.value = u.rating ?? 0
-}
-
-async function saveRating(u) {
-  try {
-    await adminApi.updateUser(u.cid, { rating: editVal.value })
-    u.rating = editVal.value
-    editing.value = null
-  } catch (e) { alert(e.message) }
-}
 
 const permissionNodes = [
   { key: 'STAFF', label: '职员公示/公告管理', minLevel: 8, levelLabel: 'rating ≥ 8' },
