@@ -202,7 +202,7 @@ async function sendEmailCode() {
   sendingCode.value = true
   try {
     // PoW：静默等待令牌（拿不到也照常发，由后端判定）
-    const powToken = await waitForPowToken(2500)
+    const powToken = await waitForPowToken(1200)
     const res = await fetch('/api/verify/send', {
       method: 'POST',
       cache: 'no-store',

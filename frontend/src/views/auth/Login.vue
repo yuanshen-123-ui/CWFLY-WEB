@@ -32,6 +32,10 @@
           />
         </FormField>
 
+        <div class="forgot-row">
+          <router-link to="/forgot-password" class="forgot-link">忘记密码？</router-link>
+        </div>
+
         <div v-if="err" class="alert alert-err">{{ err }}</div>
 
         <SubmitButton :status="status" label="登 录" @settle="status = 'idle'" />
@@ -143,7 +147,7 @@ async function sendLoginCode() {
   sendingCode.value = true
   try {
     // PoW：静默等待令牌（拿不到也照常发，由后端判定）
-    const powToken = await waitForPowToken(2500)
+    const powToken = await waitForPowToken(1200)
     const res = await fetch('/api/verify/send', {
       method: 'POST',
       cache: 'no-store',
@@ -218,6 +222,9 @@ onUnmounted(() => {
   text-decoration: none;
 }
 .auth-logo:hover { text-decoration: none; }
+.forgot-row { display: flex; justify-content: flex-end; margin: -6px 0 14px; }
+.forgot-link { font-size: 13px; color: var(--c-primary); }
+.forgot-link:hover { text-decoration: underline; }
 
 .error-banner {
   display: flex;
