@@ -16,6 +16,7 @@ from typing import Any, Iterable
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services import notifications_service as notifications
 from app.utils.json_compat import js_iso
 
 STATUS_CANCELLED = "cancelled"
@@ -396,7 +397,7 @@ async def users_by_cids(
     return {str(r._mapping["cid"]): _row(r) for r in rows}
 
 
-# ==================== 站内通知（Node createNotification） ====================
+# ==================== 站内通知（对齐 Node `import { createNotification } from './notifications.js'`） ====================
 async def create_notification(
     db: AsyncSession,
     user_id: str,
@@ -407,26 +408,11 @@ async def create_notification(
 ) -> None:
     """写 Notification；失败静默（Node `try { ... } catch {}`）。"""
     try:
-        await db.execute(
-            text(
-                "INSERT INTO `Notification` (userId, type, title, content, link, createdAt) "
-                "VALUES (:uid, :type, :title, :content, :link, :now)"
-            ),
-            {
-                "uid": user_id,
-                "type": notif_type,
-                "title": title,
-                "content": content,
-                "link": link,
-                "now": dt.datetime.utcnow(),
-            },
+        await notifications.create_notification(
+            user_id, notif_type, title, content, link, db=db
         )
-        await db.commit()
     except Exception:  # noqa: BLE001
-        try:
-            await db.rollback()
-        except Exception:  # noqa: BLE001
-            pass
+        pass
 
 
 __all__ = [

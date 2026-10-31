@@ -1157,7 +1157,7 @@ async def logs_register(
     skip, take = _paging(page, pageSize)
     rows = (
         await db.execute(
-            text(f"SELECT * FROM `User` ORDER BY `createdAt` DESC LIMIT {take} OFFSET {skip}")
+            text(sel("User", f"ORDER BY `createdAt` DESC LIMIT {take} OFFSET {skip}"))
         )
     ).all()
     total = (await db.execute(text("SELECT COUNT(*) AS c FROM `User`"))).scalar_one()
@@ -1190,8 +1190,7 @@ async def logs_network(
     rows = (
         await db.execute(
             text(
-                "SELECT * FROM `IpVisit` ORDER BY `windowStart` DESC, `count` DESC "
-                f"LIMIT {take} OFFSET {skip}"
+                sel("IpVisit", f"ORDER BY `windowStart` DESC, `count` DESC LIMIT {take} OFFSET {skip}")
             )
         )
     ).all()
@@ -1289,7 +1288,7 @@ async def list_staff(
     _perm: CurrentUser = Depends(require_permission(PERM_STAFF)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    rows = (await db.execute(text("SELECT * FROM `Staff` ORDER BY `cid` ASC"))).all()
+    rows = (await db.execute(text(sel("Staff", "ORDER BY `cid` ASC")))).all()
     return _ok(_rows(rows, ("active", "online")))
 
 
@@ -1342,7 +1341,7 @@ async def create_staff(
         db, "add_staff", f"Staff {name}({new_cid}) added", current.cid
     )
     row = (
-        await db.execute(text("SELECT * FROM `Staff` WHERE `cid` = :cid"), {"cid": new_cid})
+        await db.execute(text(sel("Staff", "WHERE `cid` = :cid")), {"cid": new_cid})
     ).first()
     return _ok(_row(row, ("active", "online")) if row is not None else None)
 
@@ -1377,7 +1376,7 @@ async def update_staff(
         await db.commit()
     await _write_audit(db, "edit_staff", f"Staff CID {cid} updated", current.cid)
     row = (
-        await db.execute(text("SELECT * FROM `Staff` WHERE `cid` = :cid"), {"cid": cid})
+        await db.execute(text(sel("Staff", "WHERE `cid` = :cid")), {"cid": cid})
     ).first()
     return _ok(_row(row, ("active", "online")) if row is not None else None)
 
@@ -1414,7 +1413,7 @@ async def logs_audit(
     skip, take = _paging(page, pageSize)
     rows = (
         await db.execute(
-            text(f"SELECT * FROM `AuditLog` ORDER BY `createdAt` DESC LIMIT {take} OFFSET {skip}")
+            text(sel("AuditLog", f"ORDER BY `createdAt` DESC LIMIT {take} OFFSET {skip}"))
         )
     ).all()
     total = (await db.execute(text("SELECT COUNT(*) AS c FROM `AuditLog`"))).scalar_one()
@@ -1440,7 +1439,7 @@ async def list_ip_bans(
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     rows = (
-        await db.execute(text("SELECT * FROM `IpBan` ORDER BY `active` DESC, `id` DESC"))
+        await db.execute(text(sel("IpBan", "ORDER BY `active` DESC, `id` DESC")))
     ).all()
     bans = _rows(rows, ("active",))
     now = _utcnow()
@@ -1512,7 +1511,7 @@ async def create_ip_ban(
     )
     operator = current.cid or "system"
     existing = (
-        await db.execute(text("SELECT * FROM `IpBan` WHERE `ip` = :ip"), {"ip": normalized})
+        await db.execute(text(sel("IpBan", "WHERE `ip` = :ip")), {"ip": normalized})
     ).first()
     if existing is not None:
         record_id = existing._mapping["id"]
@@ -1560,7 +1559,7 @@ async def create_ip_ban(
     )
     await refresh_bans()
     row = (
-        await db.execute(text("SELECT * FROM `IpBan` WHERE `id` = :id"), {"id": record_id})
+        await db.execute(text(sel("IpBan", "WHERE `id` = :id")), {"id": record_id})
     ).first()
     return _ok(_row(row, ("active",)) if row is not None else None)
 
@@ -1613,7 +1612,7 @@ async def update_ip_ban(
         await db.execute(text(f"UPDATE `IpBan` SET {set_clause} WHERE `id` = :id"), params)
         await db.commit()
     row = (
-        await db.execute(text("SELECT * FROM `IpBan` WHERE `id` = :id"), {"id": ban_id})
+        await db.execute(text(sel("IpBan", "WHERE `id` = :id")), {"id": ban_id})
     ).first()
     record = _row(row, ("active",)) if row is not None else {}
 
@@ -1640,7 +1639,7 @@ async def delete_ip_ban(
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     row = (
-        await db.execute(text("SELECT * FROM `IpBan` WHERE `id` = :id"), {"id": ban_id})
+        await db.execute(text(sel("IpBan", "WHERE `id` = :id")), {"id": ban_id})
     ).first()
     if row is None:
         return _fail(404, "not found")
@@ -1662,7 +1661,7 @@ async def list_ip_list(
     _perm: CurrentUser = Depends(require_permission(PERM_USER)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    rows = (await db.execute(text("SELECT * FROM `IpList` ORDER BY `id` DESC"))).all()
+    rows = (await db.execute(text(sel("IpList", "ORDER BY `id` DESC")))).all()
     items = _rows(rows, ("active",))
     cids = list(dict.fromkeys([str(item.get("addedBy") or "") for item in items if item.get("addedBy")]))
     name_map: dict[str, str] = {}
@@ -1707,7 +1706,7 @@ async def create_ip_list_entry(
     kind = "white" if body.get("type") == "white" else "black"
     operator = current.cid or "system"
     existing = (
-        await db.execute(text("SELECT * FROM `IpList` WHERE `ip` = :ip"), {"ip": normalized})
+        await db.execute(text(sel("IpList", "WHERE `ip` = :ip")), {"ip": normalized})
     ).first()
     if existing is not None:
         record_id = existing._mapping["id"]
@@ -1749,7 +1748,7 @@ async def create_ip_list_entry(
     )
     await refresh_ip_list()
     row = (
-        await db.execute(text("SELECT * FROM `IpList` WHERE `id` = :id"), {"id": record_id})
+        await db.execute(text(sel("IpList", "WHERE `id` = :id")), {"id": record_id})
     ).first()
     return _ok(_row(row, ("active",)) if row is not None else None)
 
@@ -1798,7 +1797,7 @@ async def update_ip_list_entry(
         await db.execute(text(f"UPDATE `IpList` SET {set_clause} WHERE `id` = :id"), params)
         await db.commit()
     row = (
-        await db.execute(text("SELECT * FROM `IpList` WHERE `id` = :id"), {"id": item_id})
+        await db.execute(text(sel("IpList", "WHERE `id` = :id")), {"id": item_id})
     ).first()
     record = _row(row, ("active",)) if row is not None else {}
     await _write_audit(
@@ -1817,7 +1816,7 @@ async def delete_ip_list_entry(
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     row = (
-        await db.execute(text("SELECT * FROM `IpList` WHERE `id` = :id"), {"id": item_id})
+        await db.execute(text(sel("IpList", "WHERE `id` = :id")), {"id": item_id})
     ).first()
     if row is None:
         return _fail(404, "not found")
@@ -1867,7 +1866,7 @@ async def import_ip_list(
             continue
         final_reason = item_reason or default_reason or "批量导入"
         existing = (
-            await db.execute(text("SELECT * FROM `IpList` WHERE `ip` = :ip"), {"ip": normalized})
+            await db.execute(text(sel("IpList", "WHERE `ip` = :ip")), {"ip": normalized})
         ).first()
         if existing is not None:
             if final_reason:
@@ -1920,7 +1919,7 @@ async def list_ip_groups(
     _perm: CurrentUser = Depends(require_permission(PERM_USER)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    rows = (await db.execute(text("SELECT * FROM `IpGroup` ORDER BY `id` DESC"))).all()
+    rows = (await db.execute(text(sel("IpGroup", "ORDER BY `id` DESC")))).all()
     groups = _rows(rows, ("active",))
     members: dict[int, list[dict[str, Any]]] = {}
     if groups:
@@ -1980,7 +1979,7 @@ async def summary_ip_groups(
     _perm: CurrentUser = Depends(require_permission(PERM_USER)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    rows = (await db.execute(text("SELECT * FROM `IpGroup` ORDER BY `id` DESC"))).all()
+    rows = (await db.execute(text(sel("IpGroup", "ORDER BY `id` DESC")))).all()
     groups = _rows(rows, ("active",))
     counts: dict[int, int] = {}
     count_rows = (
@@ -2054,7 +2053,7 @@ async def create_ip_group(
     await refresh_ip_list()
     row = (
         await db.execute(
-            text("SELECT * FROM `IpGroup` WHERE `id` = :id"), {"id": result.lastrowid}
+            text(sel("IpGroup", "WHERE `id` = :id")), {"id": result.lastrowid}
         )
     ).first()
     return _ok(_row(row, ("active",)) if row is not None else None)
@@ -2092,7 +2091,7 @@ async def update_ip_group(
         await db.execute(text(f"UPDATE `IpGroup` SET {set_clause} WHERE `id` = :id"), params)
         await db.commit()
     row = (
-        await db.execute(text("SELECT * FROM `IpGroup` WHERE `id` = :id"), {"id": group_id})
+        await db.execute(text(sel("IpGroup", "WHERE `id` = :id")), {"id": group_id})
     ).first()
     record = _row(row, ("active",)) if row is not None else {}
     await _write_audit(db, "edit_ip_group", "IP 集合 " + str(record.get("name")) + " 已更新", current.cid)
@@ -2109,7 +2108,7 @@ async def delete_ip_group(
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     row = (
-        await db.execute(text("SELECT * FROM `IpGroup` WHERE `id` = :id"), {"id": group_id})
+        await db.execute(text(sel("IpGroup", "WHERE `id` = :id")), {"id": group_id})
     ).first()
     if row is None:
         return _fail(404, "not found")
@@ -2141,7 +2140,7 @@ async def add_ip_group_member(
     if not normalized:
         return _fail(400, "无效的 IP 地址")
     group = (
-        await db.execute(text("SELECT * FROM `IpGroup` WHERE `id` = :id"), {"id": group_id})
+        await db.execute(text(sel("IpGroup", "WHERE `id` = :id")), {"id": group_id})
     ).first()
     if group is None:
         return _fail(404, "集合不存在")
@@ -2162,7 +2161,7 @@ async def add_ip_group_member(
     await refresh_ip_list()
     row = (
         await db.execute(
-            text("SELECT * FROM `IpGroupMember` WHERE `id` = :id"), {"id": result.lastrowid}
+            text(sel("IpGroupMember", "WHERE `id` = :id")), {"id": result.lastrowid}
         )
     ).first()
     return _ok(_row(row) if row is not None else None)
@@ -2178,7 +2177,7 @@ async def delete_ip_group_member(
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     row = (
-        await db.execute(text("SELECT * FROM `IpGroupMember` WHERE `id` = :id"), {"id": member_id})
+        await db.execute(text(sel("IpGroupMember", "WHERE `id` = :id")), {"id": member_id})
     ).first()
     if row is None:
         return _fail(404, "not found")
@@ -2214,7 +2213,7 @@ async def import_ip_group(
         return _fail(400, "单次最多导入 5000 条")
     gid = _as_int(group_id)
     group = (
-        await db.execute(text("SELECT * FROM `IpGroup` WHERE `id` = :id"), {"id": gid})
+        await db.execute(text(sel("IpGroup", "WHERE `id` = :id")), {"id": gid})
     ).first()
     if group is None:
         return _fail(404, "集合不存在")
@@ -2311,7 +2310,7 @@ async def list_events(
     _perm: CurrentUser = Depends(require_permission(PERM_EVENT)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    rows = (await db.execute(text("SELECT * FROM `Event` ORDER BY `id` DESC"))).all()
+    rows = (await db.execute(text(sel("Event", "ORDER BY `id` DESC")))).all()
     return _ok(_apply_dynamic_status(_rows(rows)))
 
 
@@ -2353,7 +2352,7 @@ async def create_event(
     )
     await db.commit()
     row = (
-        await db.execute(text("SELECT * FROM `Event` WHERE `id` = :id"), {"id": result.lastrowid})
+        await db.execute(text(sel("Event", "WHERE `id` = :id")), {"id": result.lastrowid})
     ).first()
     return _ok(_row(row) if row is not None else None)
 
@@ -2395,7 +2394,7 @@ async def update_event(
         await db.execute(text(f"UPDATE `Event` SET {set_clause} WHERE `id` = :id"), params)
         await db.commit()
     row = (
-        await db.execute(text("SELECT * FROM `Event` WHERE `id` = :id"), {"id": event_id})
+        await db.execute(text(sel("Event", "WHERE `id` = :id")), {"id": event_id})
     ).first()
     return _ok(_row(row) if row is not None else None)
 
@@ -2468,9 +2467,10 @@ async def list_event_registrations(
     _perm: CurrentUser = Depends(require_permission(PERM_EVENT)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    base_sql = (
-        "SELECT * FROM `EventRegistration` WHERE `eventId` = :event_id AND `type` = :type "
-        "AND `status` <> 'cancelled' ORDER BY `createdAt` ASC"
+    base_sql = sel(
+        "EventRegistration",
+        "WHERE `eventId` = :event_id AND `type` = :type "
+        "AND `status` <> 'cancelled' ORDER BY `createdAt` ASC",
     )
     pilots = _rows((await db.execute(text(base_sql), {"event_id": event_id, "type": "pilot"})).all())
     controllers = _rows(
@@ -2501,7 +2501,7 @@ async def list_event_registrations(
                 "fsdLevel": mapping["fsdLevel"],
             }
     event_row = (
-        await db.execute(text("SELECT * FROM `Event` WHERE `id` = :id"), {"id": event_id})
+        await db.execute(text(sel("Event", "WHERE `id` = :id")), {"id": event_id})
     ).first()
     data: dict[str, Any] = _row(event_row) if event_row is not None else {}
     data["pilots"] = [{**item, "user": user_map.get(str(item.get("userId") or ""))} for item in pilots]
@@ -2619,7 +2619,7 @@ async def list_staff_applications(
 ) -> JSJSONResponse:
     rows = (
         await db.execute(
-            text("SELECT * FROM `Application` WHERE `type` = 'staff' ORDER BY `id` DESC")
+            text(sel("Application", "WHERE `type` = 'staff' ORDER BY `id` DESC"))
         )
     ).all()
     return _ok(_rows(rows))
@@ -2640,7 +2640,7 @@ async def _review_application(
     interview2 = body.get("interviewTime2")
 
     current_row = (
-        await db.execute(text("SELECT * FROM `Application` WHERE `id` = :id"), {"id": app_id})
+        await db.execute(text(sel("Application", "WHERE `id` = :id")), {"id": app_id})
     ).first()
     if current_row is None:
         return _fail(404, "申请不存在")
@@ -2669,7 +2669,7 @@ async def _review_application(
         await db.execute(text(f"UPDATE `Application` SET {set_clause} WHERE `id` = :id"), params)
         await db.commit()
     app_row = (
-        await db.execute(text("SELECT * FROM `Application` WHERE `id` = :id"), {"id": app_id})
+        await db.execute(text(sel("Application", "WHERE `id` = :id")), {"id": app_id})
     ).first()
     app = _row(app_row) if app_row is not None else dict(existing)
 
@@ -2677,7 +2677,7 @@ async def _review_application(
         cid = _maybe_int(app.get("userId"))
         if cid is not None:
             staff_row = (
-                await db.execute(text("SELECT * FROM `Staff` WHERE `cid` = :cid"), {"cid": cid})
+                await db.execute(text(sel("Staff", "WHERE `cid` = :cid")), {"cid": cid})
             ).first()
             if staff_row is None:
                 department = "Control" if controller else (app.get("department") or "General")
@@ -2774,7 +2774,7 @@ async def list_controller_applications(
 ) -> JSJSONResponse:
     rows = (
         await db.execute(
-            text("SELECT * FROM `Application` WHERE `type` = 'controller' ORDER BY `id` DESC")
+            text(sel("Application", "WHERE `type` = 'controller' ORDER BY `id` DESC"))
         )
     ).all()
     return _ok(_rows(rows))
@@ -2852,7 +2852,10 @@ async def admin_flightplans(
     rows = (
         await db.execute(
             text(
-                f"SELECT * FROM `FlightPlan`{where} ORDER BY `id` DESC LIMIT {take} OFFSET {skip}"
+                sel(
+                    "FlightPlan",
+                    f"{where} ORDER BY `id` DESC LIMIT {take} OFFSET {skip}",
+                )
             ),
             params,
         )
@@ -2891,7 +2894,7 @@ async def admin_tickets(
     total = (await db.execute(text("SELECT COUNT(*) AS c FROM `Ticket`"))).scalar_one()
     rows = (
         await db.execute(
-            text(f"SELECT * FROM `Ticket` ORDER BY `id` DESC LIMIT {take} OFFSET {skip}")
+            text(sel("Ticket", f"ORDER BY `id` DESC LIMIT {take} OFFSET {skip}"))
         )
     ).all()
     return _ok({"items": _rows(rows), "total": int(total)})
@@ -2911,7 +2914,7 @@ async def admin_update_ticket(
     reply = body.get("reply")
 
     existing_row = (
-        await db.execute(text("SELECT * FROM `Ticket` WHERE `id` = :id"), {"id": ticket_id})
+        await db.execute(text(sel("Ticket", "WHERE `id` = :id")), {"id": ticket_id})
     ).first()
     if existing_row is None:
         return _fail(404, "工单不存在")
@@ -2931,7 +2934,7 @@ async def admin_update_ticket(
         await db.execute(text(f"UPDATE `Ticket` SET {set_clause} WHERE `id` = :id"), params)
         await db.commit()
     ticket_row = (
-        await db.execute(text("SELECT * FROM `Ticket` WHERE `id` = :id"), {"id": ticket_id})
+        await db.execute(text(sel("Ticket", "WHERE `id` = :id")), {"id": ticket_id})
     ).first()
     ticket = _row(ticket_row) if ticket_row is not None else dict(existing)
 
@@ -2992,7 +2995,7 @@ async def admin_controllers(
 ) -> JSJSONResponse:
     rows = (
         await db.execute(
-            text("SELECT * FROM `Staff` WHERE `department` LIKE '%Control%' ORDER BY `cid` ASC")
+            text(sel("Staff", "WHERE `department` LIKE '%Control%' ORDER BY `cid` ASC"))
         )
     ).all()
     return _ok(_rows(rows, ("active", "online")))
@@ -3025,7 +3028,7 @@ async def admin_update_controller(
         await db.execute(text(f"UPDATE `Staff` SET {set_clause} WHERE `cid` = :cid"), params)
         await db.commit()
     row = (
-        await db.execute(text("SELECT * FROM `Staff` WHERE `cid` = :cid"), {"cid": cid})
+        await db.execute(text(sel("Staff", "WHERE `cid` = :cid")), {"cid": cid})
     ).first()
     return _ok(_row(row, ("active", "online")) if row is not None else None)
 
@@ -3051,7 +3054,7 @@ async def admin_online(
             )
         ).first()
         parsed = json.loads(row._mapping["data"]) if row is not None else {}
-        staff_rows = (await db.execute(text("SELECT * FROM `Staff` ORDER BY `cid` ASC"))).all()
+        staff_rows = (await db.execute(text(sel("Staff", "ORDER BY `cid` ASC")))).all()
         return _ok(
             {
                 "clients": parsed.get("clients") or [],
@@ -3082,7 +3085,7 @@ async def admin_update_online_staff(
     await db.execute(text("UPDATE `Staff` SET `active` = :active WHERE `cid` = :cid"), {"active": active, "cid": cid})
     await db.commit()
     row = (
-        await db.execute(text("SELECT * FROM `Staff` WHERE `cid` = :cid"), {"cid": cid})
+        await db.execute(text(sel("Staff", "WHERE `cid` = :cid")), {"cid": cid})
     ).first()
     return _ok(_row(row, ("active", "online")) if row is not None else None)
 
@@ -3094,7 +3097,7 @@ async def admin_notifications(
     _perm: CurrentUser = Depends(require_permission(PERM_USER)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    rows = (await db.execute(text("SELECT * FROM `Notification` ORDER BY `id` DESC"))).all()
+    rows = (await db.execute(text(sel("Notification", "ORDER BY `id` DESC")))).all()
     return _ok(_rows(rows, ("read",)))
 
 
@@ -3132,7 +3135,7 @@ async def admin_create_notification(
     await db.commit()
     row = (
         await db.execute(
-            text("SELECT * FROM `Notification` WHERE `id` = :id"), {"id": result.lastrowid}
+            text(sel("Notification", "WHERE `id` = :id")), {"id": result.lastrowid}
         )
     ).first()
     return _ok(_row(row, ("read",)) if row is not None else None, message="sent")
@@ -3164,7 +3167,7 @@ async def admin_training_courses(
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     rows = (
-        await db.execute(text("SELECT * FROM `TrainingCourse` ORDER BY `id` DESC"))
+        await db.execute(text(sel("TrainingCourse", "ORDER BY `id` DESC")))
     ).all()
     return _ok(_rows(rows))
 
@@ -3201,7 +3204,7 @@ async def admin_create_training_course(
     await db.commit()
     row = (
         await db.execute(
-            text("SELECT * FROM `TrainingCourse` WHERE `id` = :id"), {"id": result.lastrowid}
+            text(sel("TrainingCourse", "WHERE `id` = :id")), {"id": result.lastrowid}
         )
     ).first()
     return _ok(_row(row) if row is not None else None)
@@ -3235,7 +3238,7 @@ async def admin_training_records(
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     rows = (
-        await db.execute(text("SELECT * FROM `TrainingRecord` ORDER BY `id` DESC"))
+        await db.execute(text(sel("TrainingRecord", "ORDER BY `id` DESC")))
     ).all()
     return _ok(_rows(rows, ("passed", "completed")))
 

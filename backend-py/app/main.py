@@ -19,7 +19,7 @@ from app.config import settings
 from app.db.session import dispose_engine
 from app.deps import AuthFailure
 from app.middleware.access_log import AccessLogMiddleware
-from app.middleware.ip_ban import IpBanMiddleware
+from app.middleware.ip_ban import IpBanMiddleware, preload_bans
 from app.middleware.rate_limit import (
     GLOBAL_API,
     RateLimitExceeded,
@@ -41,6 +41,7 @@ log = logging.getLogger("cwfly.main")
 async def lifespan(app: FastAPI):
     # 与 Node 版一致：服务就绪前完成管理员初始化
     await init_admin()
+    await preload_bans()
     try:
         from app.jobs.scheduler import start_jobs
 

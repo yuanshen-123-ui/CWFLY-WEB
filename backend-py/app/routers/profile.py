@@ -24,6 +24,7 @@ from app.deps import CurrentUser, get_current_user
 from app.services import mailer
 from app.services import profile_store as ps
 from app.services import profile_uploads as pu
+from app.services.zh_time_service import zh_locale
 from app.utils.json_compat import JSJSONResponse
 from app.utils.security import hash_password, sha256_hex, verify_password
 
@@ -65,8 +66,8 @@ def _js_string(value: Any) -> str:
 
 
 def _zh_now() -> str:
-    """`new Date().toLocaleString('zh-CN')`（与 flightplans 服务同一格式约定）。"""
-    return dt.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    """`new Date().toLocaleString('zh-CN')`（月/日不补零，与 Node ICU 输出一致）。"""
+    return zh_locale(dt.datetime.now())
 
 
 async def _read_json(request: Request) -> dict[str, Any]:

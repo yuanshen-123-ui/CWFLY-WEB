@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.deps import CurrentUser, get_current_user
-from app.services.flightplans import zh_now_string
+from app.services.zh_time_service import zh_now
 from app.utils.json_compat import JSJSONResponse
 
 log = logging.getLogger("cwfly.checkin")
@@ -75,6 +75,7 @@ async def create_checkin(
     try:
         body = await _read_json(request)
         event_id = _js_string(body.get("eventId", _MISSING))
+        stamp = zh_now()
         result = await db.execute(
             text(
                 "INSERT INTO `CheckInRecord` (userId, eventId, eventTitle, time) "
@@ -84,7 +85,7 @@ async def create_checkin(
                 "userId": current.cid,
                 "eventId": event_id,
                 "eventTitle": f"活动 #{event_id}",
-                "time": zh_now_string(),
+                "time": stamp,
             },
         )
         await db.commit()
@@ -95,13 +96,17 @@ async def create_checkin(
                 {"id": record_id},
             )
         ).first()
-        data = dict(row._mapping) if row is not None else {
-            "id": record_id,
-            "userId": current.cid,
-            "eventId": event_id,
-            "eventTitle": f"活动 #{event_id}",
-            "time": zh_now_string(),
-        }
+        data = (
+            dict(row._mapping)
+            if row is not None
+            else {
+                "id": record_id,
+                "userId": current.cid,
+                "eventId": event_id,
+                "eventTitle": f"活动 #{event_id}",
+                "time": stamp,
+            }
+        )
         return _ok(data)
     except Exception as exc:  # noqa: BLE001
         log.error("[checkin.js] %s", exc)
