@@ -382,12 +382,13 @@ async def _write_audit(db: AsyncSession, action: str, detail: str, operator: str
 
 
 def _pending_visits() -> list[dict[str, Any]]:
-    """Node 从 `middleware/ipTracker.js` 取「未落库的实时访问」并合并进网络日志。
+    """取「未落库的实时访问」并合并进网络日志（对齐 Node getPendingVisits）。"""
+    try:
+        from app.services.ip_tracker import get_pending_visits
 
-    Python 端尚未移植 ipTracker（中间件/服务属既有文件范围），因此这里返回空列表：
-    仅缺少「最近 60s 内存中尚未落库」的实时行，已落库的 IpVisit 行不受影响。
-    """
-    return []
+        return get_pending_visits()
+    except Exception:  # noqa: BLE001
+        return []
 
 
 async def _notify_all_users(db: AsyncSession, title: str, content: str) -> None:

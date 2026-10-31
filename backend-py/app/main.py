@@ -18,16 +18,13 @@ from starlette.staticfiles import StaticFiles
 from app.config import settings
 from app.db.session import dispose_engine
 from app.deps import AuthFailure
-from app.middleware.access_log import AccessLogMiddleware
+from app.middleware.gateway import GatewayMiddleware
 from app.middleware.ip_ban import IpBanMiddleware, preload_bans
 from app.middleware.rate_limit import (
     GLOBAL_API,
     RateLimitExceeded,
     RateLimitMiddleware,
 )
-from app.middleware.response_headers import ResponseHeadersMiddleware
-from app.middleware.security_headers import SecurityHeadersMiddleware
-from app.middleware.ua_filter import UserAgentFilterMiddleware
 from app.routers import iter_routers
 from app.services.bootstrap import init_admin
 from app.utils.json_compat import JSJSONResponse, js_iso
@@ -48,6 +45,12 @@ async def lifespan(app: FastAPI):
         from app.jobs.scheduler import warmup
 
         await warmup()   # IP/设备名单预热 + 首轮 whazzup（对应 Node ensureBansLoaded/启动首刷）
+        from app.services.ip_tracker import start_ip_tracker
+
+        start_ip_tracker()
+        from app.services.rate_limit_store import ensure_table as _ensure_rate_limit_table
+
+        await _ensure_rate_limit_table()
     except Exception as exc:  # noqa: BLE001
         log.warning("[CWFLY] 预热失败: %s", exc)
     try:
@@ -61,6 +64,9 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         try:
+            from app.services.ip_tracker import stop_ip_tracker
+
+            await stop_ip_tracker()
             from app.jobs.scheduler import stop_jobs
 
             await stop_jobs()
@@ -88,11 +94,8 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Renewed-Token"],
 )
-app.add_middleware(AccessLogMiddleware)          # morgan
-app.add_middleware(ResponseHeadersMiddleware)     # 回填 X-Renewed-Token / RateLimit-*
-app.add_middleware(SecurityHeadersMiddleware)    # helmet / 安全响应头
-app.add_middleware(IpBanMiddleware)              # IP 封禁（P3 完整实现）
-app.add_middleware(UserAgentFilterMiddleware)    # UA 过滤（对齐 Node BLOCKED_AGENTS）
+app.add_middleware(GatewayMiddleware)            # UA 过滤 + 安全头 + 续签/限流头 + IP 聚合 + 访问日志（合并）
+app.add_middleware(IpBanMiddleware)              # IP 封禁（IpBan > 白名单 > IpList）
 app.add_middleware(RateLimitMiddleware, limit=GLOBAL_API)  # /api 全局 60 次/分钟
 
 # ---------- 静态文件（路径与 Node 完全一致） ----------

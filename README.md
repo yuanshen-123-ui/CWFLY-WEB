@@ -1,6 +1,6 @@
 # CWFLY-WEB · 模拟飞行社区网站
 
-CWFLY 模拟飞行社区的门户网站：**Vue 3 前端 + Express/Prisma 后端**，覆盖官网展示、在线地图、航图与机场资料、气象查询、飞行计划、管制排班、培训考试、论坛、积分、活动、工单与安全审计。
+CWFLY 模拟飞行社区的门户网站：**Vue 3 前端 + Python/FastAPI 后端**，覆盖官网展示、在线地图、航图与机场资料、气象查询、飞行计划、管制排班、培训考试、论坛、积分、活动、工单与安全审计。
 
 - 🌐 线上：https://www.cwflysim.cn
 - 🗺 关联服务：FSD 连线服务器（[CWFLY-FSD](https://github.com/yuanshen-123-ui/CWFLY-FSD)）、管制中心（[CWFLY-ATC](https://github.com/yuanshen-123-ui/CWFLY-ATC)）、QQ 机器人（[CWFLY-BOT](https://github.com/yuanshen-123-ui/CWFLY-BOT)）
@@ -31,10 +31,10 @@ CWFLY 模拟飞行社区的门户网站：**Vue 3 前端 + Express/Prisma 后端
 | 层 | 技术 |
 |---|---|
 | 前端 | Vue 3、Vite、Vue Router、Pinia、AMap JSAPI 2.0、Mapbox GL 3D、three.js、Axios |
-| 后端 | Node.js、Express 5、Prisma 7 + `@prisma/adapter-mariadb`、MySQL/MariaDB |
+| 后端 | Python 3.11+、FastAPI、SQLAlchemy 2.0 async + asyncmy、MySQL/MariaDB（Alembic baseline） |
 | 认证 | JWT（HS512）+ 刷新、bcrypt 口令、设备指纹、Turnstile |
 | 外部服务 | OpenAIP（机场频率/跑道）、aviationweather.gov / VATSIM（METAR/TAF）、SMTP |
-| 运维 | PM2（`cwfly-api` 集群）、Nginx 反代、Prisma Migrate |
+| 运维 | PM2（`cwfly-api-py`）、Nginx 反代、Alembic（基线固定，表结构沿用原库） |
 
 ---
 
@@ -42,19 +42,22 @@ CWFLY 模拟飞行社区的门户网站：**Vue 3 前端 + Express/Prisma 后端
 
 ```
 CWFLY-WEB/
-├── backend/
-│   ├── server.js              # 入口：Express 装配、中间件、路由挂载、Prisma 初始化
-│   ├── prisma/
-│   │   ├── schema.prisma      # 46 个数据模型
-│   │   └── migrations/        # 迁移（含基线说明 README-BASELINE.md）
-│   ├── src/
-│   │   ├── routes/            # 24 个业务路由（见下表）
-│   │   ├── services/          # OpenAIP、机场站点库、管制边界、METAR 多源等
-│   │   ├── middleware/        # 鉴权、风控、限流、Turnstile、设备指纹
-│   │   ├── config/            # 配置与密钥轮换
-│   │   ├── utils/             # prisma 封装、日志、邮件、限流存储
-│   │   └── data/              # 静态数据（机场库等）
-│   ├── scripts/               # 运维/导入脚本（机场导入、用户检查等）
+├── backend-py/                # Python/FastAPI 后端（Node 后端已于 2026-10-31 下线）
+│   ├── app/
+│   │   ├── main.py            # 入口：中间件、异常处理、静态挂载、/health、/whazzup.json
+│   │   ├── asgi.py            # 部署入口：FastAPI + Socket.IO（uvicorn app.asgi:application）
+│   │   ├── deps.py            # JWT 鉴权 / 权限 / 滑动续签（X-Renewed-Token）
+│   │   ├── routers/           # 24 个业务路由模块（168 端点）
+│   │   ├── services/          # JWT 密钥轮换、whazzup、FSD 快照、管制边界、各业务 service
+│   │   ├── middleware/        # Gateway（UA/安全头/限流头/访问日志）+ IP 封禁 + 全局限流
+│   │   ├── sockets/           # Socket.IO（/socket.io/，事件名与 Node 一致）
+│   │   ├── jobs/              # 定时任务（清理/whazzup 轮询/数据库备份）
+│   │   ├── db/                # SQLAlchemy async 会话
+│   │   └── utils/             # JS 兼容 JSON、客户端 IP/UA、密码哈希
+│   ├── alembic/               # baseline（0001_baseline，不改既有表结构）
+│   ├── data/                  # 静态数据（FIR 边界、机场站点缓存）
+│   ├── scripts/               # check_routes.py（端点对账）、smoke.py（离线冒烟）、bench.py
+│   ├── deploy/                # deploy.sh / cutover.sh / monitor.sh / PRODUCTION.md
 │   └── .env.example           # 后端环境变量模板
 └── frontend/
     ├── src/
@@ -110,7 +113,7 @@ CWFLY-WEB/
 
 ## 四、环境变量
 
-### backend/.env（复制 `.env.example`）
+### backend-py/.env（复制 `.env.example`）
 
 | 变量 | 必填 | 说明 |
 |---|---|---|
@@ -139,13 +142,13 @@ CWFLY-WEB/
 ## 五、本地开发
 
 ```bash
-# 后端
-cd backend
+# 后端（Python/FastAPI）
+cd backend-py
+python -m venv .venv && . .venv/bin/activate    # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 cp .env.example .env            # 填写 DATABASE_URL / JWT_SECRET / SMTP…
-npm install
-npx prisma generate
-npx prisma migrate dev          # 本地开发迁移；生产用 migrate deploy
-npm run dev                     # http://localhost:3000
+uvicorn app.main:app --host 127.0.0.1 --port 3001   # HTTP（开发）
+# 或带 Socket.IO：uvicorn app.asgi:application --port 3001
 
 # 前端（另开终端）
 cd frontend
@@ -155,9 +158,9 @@ npm run dev                     # http://localhost:5173
 
 ### 数据库迁移
 
-- 生产：`npx prisma migrate deploy`（只应用已有迁移）
-- 本地：`npx prisma migrate dev --name <含义>`
-- 迁移需保持幂等（`IF NOT EXISTS` / `information_schema` 守卫），历史基线见 `migrations/README-BASELINE.md`
+- 表结构沿用原库，Alembic 用 `0001_baseline` 标记起点（`alembic stamp 0001_baseline`），**不对既有列做自动变更**；
+- 新增表/列时手写 `alembic revision -m "..."` 并在服务启动前执行 `alembic upgrade head`；
+- 迁移需保持幂等（`IF NOT EXISTS` / `information_schema` 守卫）。
 
 ---
 
@@ -167,13 +170,14 @@ npm run dev                     # http://localhost:5173
 # 前端构建（需要 VITE_MAPBOX_TOKEN 时先配置 .env.production）
 cd frontend && npm run build      # 产物 dist/
 
-# 后端（PM2，零停机）
-pm2 reload cwfly-api
+# 后端（PM2，Python 实例；部署见 backend-py/deploy/deploy.sh）
+bash backend-py/deploy/deploy.sh          # 在服务器上：解包→装依赖→编译→DB自检→重启→健康检查
+pm2 logs cwfly-api-py
 ```
 
 **部署纪律**：
 
-1. **禁止 `pm2 restart all`** —— 会让所有在线机组/管制掉线；后端只用 `pm2 reload cwfly-api`。
+1. **禁止 `pm2 restart all`** —— 会让所有在线机组/管制掉线；后端只操作 `cwfly-api-py`。
 2. 前端发布**增量覆盖** `dist/`，**保留旧的 hashed 资源**，否则在线用户会 404。
 3. 变更前先备份数据库，Nginx 改完先 `nginx -t` 再 `reload`。
 
@@ -225,21 +229,21 @@ pm2 reload cwfly-api
 
 ---
 
-## 后端迁移：Node/Express → Python/FastAPI（进行中）
+## 后端迁移：Node/Express → Python/FastAPI（已完成 ✅ 2026-10-31）
 
-目标：用 `backend-py/`（FastAPI + SQLAlchemy 2.0 async + asyncmy）替换现有 `backend/`（Express + Prisma），
-**接口 100% 兼容、前端零改动**；迁移期间两套后端并存，由 Nginx 按路径前缀灰度切流，全部验证通过后才下线 Node。
+`backend/`（Express + Prisma）已由 `backend-py/`（FastAPI + SQLAlchemy async）**全量替换**：
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
-| P0 | 基础设施（JWT 密钥轮换/权限/限流/日志/异常/静态/Alembic baseline） | ✅ 完成 |
-| P1 | `/api/auth`（10 端点：登录/注册/续签/改密/找回） | ✅ 完成 |
-| P1.5 | `/api/flightplans`（含 FSD 管理口）+ `/api/profile` 上传 | ✅ 完成 |
-| P2 | `weather` / `events` / `tickets` / `forum` 等 18 个业务路由 | ✅ 完成（168/168 端点） |
-| P3 | `admin`（80 端点）/ `security` / Socket.IO / 定时任务 | ✅ 完成 |
-| P4 | Nginx 全量切流 → **生产已切换 Python**（Node 已停止，观察 1 周后删除 `backend/`） | ✅ 2026-10-31 |
+| P0 | 基础设施（JWT 密钥轮换、权限、限流、日志、异常、静态、Alembic baseline） | ✅ |
+| P1 | `/api/auth` 10 端点（登录/注册/续签/改密/找回） | ✅ |
+| P1.5~P3 | 其余 23 个路由模块（168/168 端点）、Socket.IO、定时任务、管理后台 | ✅ |
+| P4 | 停机切换 → 生产验证（Node vs Python 20/20 接口逐字节一致）→ **Node 下线** | ✅ |
 
-详细说明（启动、灰度配置、兼容红线、本地实测结果）见 [backend-py/README.md](backend-py/README.md)。
+- Node 源码已归档到服务器 `/opt/cwfly/backups/backend-node-final-<ts>.tar.gz` 并从 `backend/` 目录移除；
+- 生产入口：PM2 `cwfly-api-py`（`uvicorn app.asgi:application` :3001），nginx `/api`、`/socket.io`、`/uploads` 全量指向 Python；
+- 部署/回滚/监控手册见 [`backend-py/deploy/PRODUCTION.md`](backend-py/deploy/PRODUCTION.md)；
+- 已知差异清单见 [`backend-py/README.md`](backend-py/README.md) 第九节。
 
 ---
 ## 许可证

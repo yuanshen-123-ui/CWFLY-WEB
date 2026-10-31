@@ -8,7 +8,7 @@
 set -euo pipefail
 
 DIR=/opt/cwfly/backend-py
-NODE_DIR=/opt/cwfly/backend
+# Node 后端已下线（2026-10-31），不再依赖 /opt/cwfly/backend
 VHOST=/www/server/panel/vhost/nginx
 PKG=${PKG:-/tmp/backend-py.tgz}
 TS=$(date +%Y%m%d-%H%M%S)
@@ -29,8 +29,10 @@ rollback() {
 }
 [ "${1:-}" = "--rollback" ] && rollback
 
-echo "=== [1] 停 Python ==="
+echo "=== [1] 停 Python 并暂存 uploads/.env ==="
 pm2 stop cwfly-api-py >/dev/null 2>&1 || true
+rm -rf /tmp/backend-py-uploads.preserve
+[ -d "$DIR/uploads" ] && mv "$DIR/uploads" /tmp/backend-py-uploads.preserve
 
 echo "=== [2] 解包（保留 venv / .env）==="
 rm -rf /tmp/backend-py.extract && mkdir -p /tmp/backend-py.extract
@@ -38,14 +40,22 @@ tar -xzf "$PKG" -C /tmp/backend-py.extract
 [ -d "$DIR/.venv" ] && mv "$DIR/.venv" /tmp/backend-py.extract/backend-py/.venv
 [ -d "$DIR" ] && mv "$DIR" "${DIR}.bak-$TS"
 mv /tmp/backend-py.extract/backend-py "$DIR"
-if [ -f "${DIR}.bak-$TS/.env" ]; then cp -a "${DIR}.bak-$TS/.env" "$DIR/.env"; else cp -a "$NODE_DIR/.env" "$DIR/.env"; fi
+if [ -f "${DIR}.bak-$TS/.env" ]; then
+  cp -a "${DIR}.bak-$TS/.env" "$DIR/.env"
+elif [ ! -f "$DIR/.env" ]; then
+  echo "✖ 缺少 $DIR/.env，请从备份恢复后再部署"; exit 1
+fi
 sed -i 's/^PORT=.*/PORT=3001/' "$DIR/.env"
 grep -q '^BACKEND_LOG_DIR=' "$DIR/.env" || echo "BACKEND_LOG_DIR=$DIR/logs" >> "$DIR/.env"
 
-echo "=== [3] uploads 与 Node 共享 ==="
-mkdir -p "$NODE_DIR/uploads"/{avatars,posters,backgrounds,meetings}
-rm -rf "$DIR/uploads"
-ln -s "$NODE_DIR/uploads" "$DIR/uploads"
+echo "=== [3] 恢复 uploads（真实目录，部署前已暂存）==="
+if [ -d /tmp/backend-py-uploads.preserve ]; then
+  rm -rf "$DIR/uploads"
+  mv /tmp/backend-py-uploads.preserve "$DIR/uploads"
+else
+  mkdir -p "$DIR/uploads"/{avatars,posters,backgrounds,meetings}
+fi
+ls -ld "$DIR/uploads"
 
 echo "=== [4] 依赖 + 编译 + DB 自检 ==="
 cd "$DIR"

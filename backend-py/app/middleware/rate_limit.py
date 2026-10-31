@@ -63,7 +63,19 @@ def rate_limiter(limit: Limit) -> Callable[[Request, Response], Response | None]
 
     async def _dep(request: Request, response: Response) -> None:
         ip = get_client_ip(request) or "unknown"
-        allowed, remaining, reset = _consume(limit, ip)
+        # 优先用 MySQL 共享 store（多实例一致）；DB 故障时 fail-open，再退内存计数
+        try:
+            from app.services import rate_limit_store
+
+            hits, left = await rate_limit_store.increment(f"{limit.scope}:{ip}", limit.window_seconds)
+        except Exception:  # noqa: BLE001
+            hits, left = 0, limit.window_seconds
+        if hits == 0:  # fail-open 或 store 不可用 → 走内存兜底
+            allowed, remaining, reset = _consume(limit, ip)
+        else:
+            allowed = hits <= limit.max_requests
+            remaining = max(limit.max_requests - hits, 0)
+            reset = max(left, 1)
         request.state.rate_limit_headers = {
             "RateLimit-Limit": str(limit.max_requests),
             "RateLimit-Remaining": str(remaining),

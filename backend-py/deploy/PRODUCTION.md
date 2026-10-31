@@ -1,6 +1,6 @@
 # 生产部署状态与运维手册（Python/FastAPI）
 
-> 2026-10-31 已完成 **P4 停机切换**：生产 API 由 Python 后端承载，Node 后端已停止（保留用于回滚）。
+> 2026-10-31 已完成 **P4 停机切换 + Node 下线**：生产 API 完全由 Python 后端承载，Node 代码已归档到 `/opt/cwfly/backups/backend-node-final-<ts>.tar.gz` 并从服务器移除。
 
 ## 一、生产拓扑
 
@@ -62,3 +62,36 @@ pm2 reload cwfly-api-py 2>/dev/null || pm2 restart cwfly-api-py 2>/dev/null
 ```
 
 > 其它 cron（bot 健康检查 `cwfly-bot-healthcheck.sh`、数据库备份 `db_backup.sh`）与本次切换无关，未改动。
+
+## 七、Node 下线记录（2026-10-31）
+
+| 项 | 处理 |
+|---|---|
+| PM2 | `pm2 delete cwfly-api`（已 `pm2 save`，重启后只拉起 `cwfly-api-py`） |
+| Node 源码 | 归档 `/opt/cwfly/backups/backend-node-final-<ts>.tar.gz`（59MB，不含 node_modules）后删除 `/opt/cwfly/backend` |
+| 上传文件 | 52 个文件（35MB）迁移到 `backend-py/uploads`（实体目录，抽样 sha256 校验通过） |
+| 数据库备份脚本 | `scripts/db_backup.sh` 的 env 路径由 `backend/.env` 改为 `backend-py/.env`（已备份原脚本） |
+| nginx | 不变（`/api` `/socket.io` `/uploads` 已指向 `:3001`） |
+| 自愈脚本 | `ddos-hardening.sh` 监控 `:3001/health`、自愈 `cwfly-api-py`（已备份原脚本） |
+
+## 八、监控与告警
+
+- 脚本：`/opt/cwfly/cwfly-api-py-monitor.sh`，cron **每分钟**执行；
+- 检查：`/health` 200、最近 90s ERROR 日志数（≥3 告警并触发自愈重启）、进程存活、日志轮转（错误日志 50MB 截断）；
+- 告警：OneBot（`/opt/cwfly/bot/.env` 的 `ONEBOT_ACCESS_TOKEN` + `NOTIFY_GROUP_ID`）发 QQ 群，同一告警 10 分钟内去重；
+- 测试：`MONITOR_NO_NOTIFY=1 bash /opt/cwfly/cwfly-api-py-monitor.sh`（只记日志不发送）；
+- 日志：`/opt/cwfly/monitor-api-py.log`。
+
+## 九、性能基线（单实例，4 vCPU 机器，curl/httpx 客户端并发 10）
+
+| 端点 | Node（2 进程 cluster） | Python（1 worker） |
+|---|---|---|
+| `/health` | 218 req/s · p50 37ms · p95 88ms | 192 req/s · p50 40ms · p95 118ms |
+| `/api/auth/check-cid` | 232 req/s · p50 32ms · p95 100ms | 205 req/s · p50 38ms · p95 114ms |
+| `/api/events` | 265 req/s · p50 26ms · p95 108ms | 223 req/s · p50 33ms · p95 103ms |
+
+> 结论：单实例 Python 约为 Node 双进程的 **80~85%** 吞吐，p95 均在 120ms 内，远高于站点实际流量；
+> 如需更高并发：`uvicorn --workers 2`（需给定时任务加单实例锁，避免备份/whazzup 重复执行）。
+
+优化记录：访问日志改为**内存缓冲 + 每秒批量落盘**（原每请求 flush 在该机器上约 7ms 磁盘开销），
+并把 UA/安全头/续签头/IP 聚合/访问日志合并为单个 `GatewayMiddleware`。

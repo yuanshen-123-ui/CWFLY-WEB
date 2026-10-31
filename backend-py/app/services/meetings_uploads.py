@@ -130,27 +130,86 @@ _W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 
 def docx_to_html(path: Path) -> str:
-    """把 docx 正文段落转成 `<p>` 序列（等价 mammoth.convertToHtml 的最小实现）。"""
+    """把 docx 正文转成 HTML（等价 mammoth.convertToHtml 的常用子集）。
+
+    - 普通段落 → `<p>text</p>`（转义 HTML）；
+    - 内嵌图片（`<a:blip r:embed>`）→ `<img src="data:<mime>;base64,..." />`（与 mammoth 一致）；
+    - 制表符/换行按 mammoth 行为保留。
+    """
+    _R_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+    _A_NS = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+    mime_by_ext = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".bmp": "image/bmp",
+        ".webp": "image/webp",
+        ".emf": "image/x-emf",
+        ".wmf": "image/x-wmf",
+        ".tif": "image/tiff",
+        ".tiff": "image/tiff",
+    }
     with zipfile.ZipFile(path) as archive:
         try:
             xml_bytes = archive.read("word/document.xml")
         except KeyError as exc:
             raise ValueError("docx 缺少 word/document.xml") from exc
-    root = ET.fromstring(xml_bytes)
-    paragraphs: list[str] = []
-    for paragraph in root.iter(f"{_W_NS}p"):
-        pieces: list[str] = []
-        for node in paragraph.iter():
-            if node.tag == f"{_W_NS}t" and node.text:
-                pieces.append(node.text)
-            elif node.tag == f"{_W_NS}tab":
-                pieces.append("\t")
-            elif node.tag in (f"{_W_NS}br", f"{_W_NS}cr"):
-                pieces.append("\n")
-        text_value = "".join(pieces).strip()
-        if text_value:
-            paragraphs.append(f"<p>{escape_html(text_value)}</p>")
-    return "".join(paragraphs)
+        # rId -> 包内媒体路径
+        rels: dict[str, str] = {}
+        try:
+            rel_xml = archive.read("word/_rels/document.xml.rels")
+            for rel in ET.fromstring(rel_xml).iter():
+                if rel.tag.endswith("}Relationship"):
+                    rid = rel.get("Id")
+                    target = (rel.get("Target") or "").lstrip("/")
+                    if rid and target:
+                        rels[rid] = target if target.startswith("word/") else f"word/{target}"
+        except KeyError:
+            rels = {}
+
+        def image_tag(rid: str) -> str:
+            media_path = rels.get(rid)
+            if not media_path:
+                return ""
+            try:
+                data = archive.read(media_path)
+            except KeyError:
+                return ""
+            ext = Path(media_path).suffix.lower()
+            mime = mime_by_ext.get(ext, "application/octet-stream")
+            import base64
+
+            return f'<img src="data:{mime};base64,{base64.b64encode(data).decode()}" />'
+
+        root = ET.fromstring(xml_bytes)
+        paragraphs: list[str] = []
+        for paragraph in root.iter(f"{_W_NS}p"):
+            pieces: list[str] = []
+            for node in paragraph.iter():
+                if node.tag == f"{_W_NS}t" and node.text:
+                    pieces.append(node.text)
+                elif node.tag == f"{_W_NS}tab":
+                    pieces.append("	")
+                elif node.tag in (f"{_W_NS}br", f"{_W_NS}cr"):
+                    pieces.append("\n")
+                elif node.tag == f"{_A_NS}blip":
+                    rid = node.get(f"{_R_NS}embed") or ""
+                    tag = image_tag(rid) if rid else ""
+                    if tag:
+                        pieces.append(tag)
+            raw = "".join(pieces)
+            if not raw.strip():
+                continue
+            # 文本块转义、img 标签保留
+            html_parts: list[str] = []
+            for chunk in re.split(r"(<img [^>]*/>)", raw):
+                if chunk.startswith("<img "):
+                    html_parts.append(chunk)
+                elif chunk:
+                    html_parts.append(escape_html(chunk))
+            paragraphs.append(f"<p>{''.join(html_parts)}</p>")
+        return "".join(paragraphs)
 
 
 # ==================== PDF → 文本 ====================
