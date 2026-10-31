@@ -199,13 +199,14 @@
         </nav>
 
         <div class="sidebar-footer">
+          <div class="sidebar-section-label">账号</div>
           <div class="sidebar-user" @click="showUserMenu = !showUserMenu">
             <div class="sidebar-user-avatar"><img :src="avatarUrl" @error="onAvatarError" /></div>
             <div class="sidebar-user-info">
               <div class="sidebar-user-name">{{ user.username }}</div>
               <div class="sidebar-user-cid">CID {{ user.cid }}</div>
             </div>
-            <span class="sidebar-user-arrow" :class="{ expanded: showUserMenu }" v-html="icons.chevron"></span>
+            <span class="sidebar-user-arrow" :class="{ expanded: showUserMenu }" v-html="icons.chevronRight"></span>
           </div>
           <div class="sidebar-user-menu" v-show="showUserMenu">
             <router-link to="/profile" class="user-menu-item" @click="sidebarOpen = false; showUserMenu = false" v-html="icons.profile + ' 个人中心'"></router-link>
@@ -1221,33 +1222,46 @@ html[data-theme='dark'] .map-settings-panel {
 .sidebar-nav {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 10px 8px;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.nav-group { margin-bottom: 2px; }
+.nav-group { margin-bottom: 0; }
 
 .nav-group-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: 8px;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
   font-size: 14px;
   font-weight: 500;
+  line-height: 1.4;
   color: var(--c-text);
   cursor: pointer;
   user-select: none;
-  transition: background .15s;
+  transition: background-color .16s ease, color .16s ease;
 }
-.nav-group-title:hover { background: #f5f7fa; }
-.nav-group-title--open { color: #1769d2; }
-.nav-group-title--open .nav-group-icon { color: #1769d2; }
+.nav-group-title:hover { background: rgba(0, 0, 0, .045); }
+.nav-group-title--open {
+  background: rgba(0, 113, 227, .08);
+  color: var(--c-primary);
+}
+.nav-group-title--open .nav-group-icon { color: var(--c-primary); }
+.nav-group-title--open .nav-group-arrow { color: var(--c-primary); }
 
 .nav-group-icon,
-.nav-item-icon {
+.nav-item-icon,
+.nav-icon {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   color: var(--c-text-secondary);
 }
@@ -1257,8 +1271,9 @@ html[data-theme='dark'] .map-settings-panel {
 .nav-group-arrow {
   display: flex;
   align-items: center;
-  color: var(--c-text-secondary);
-  transition: transform .2s;
+  margin-left: auto;
+  color: var(--c-text-muted, var(--c-text-secondary));
+  transition: transform .2s ease, color .18s ease;
 }
 .nav-group-arrow.expanded { transform: rotate(90deg); }
 
@@ -1269,7 +1284,14 @@ html[data-theme='dark'] .map-settings-panel {
   transition: grid-template-rows .42s cubic-bezier(.4, 0, .2, 1), opacity .3s ease;
 }
 .nav-group-items--collapsed { grid-template-rows: 0fr; opacity: 0; }
-.nav-group-items-inner { overflow: hidden; min-height: 0; }
+.nav-group-items-inner {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
 
 /* 子项错峰出现：--i 由模板写入，每个 50ms */
 .nav-group-items:not(.nav-group-items--collapsed) .nav-item {
@@ -1285,20 +1307,21 @@ html[data-theme='dark'] .map-settings-panel {
 .nav-item--single {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: 8px;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
   font-size: 14px;
   font-weight: 500;
+  line-height: 1.4;
   color: var(--c-text-secondary);
   text-decoration: none;
-  transition: all .15s;
-  margin-bottom: 2px;
+  transition: background-color .16s ease, color .16s ease;
   position: relative;
 }
 .nav-item--single:hover {
-  background: #f5f7fa;
-  color: #1f2a3a;
+  background: rgba(0, 0, 0, .045);
+  color: var(--c-text);
   text-decoration: none;
 }
 
@@ -1306,20 +1329,21 @@ html[data-theme='dark'] .map-settings-panel {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px 8px 38px;
-  border-radius: 8px;
-  font-size: 13px;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 14px 0 40px;
+  border-radius: 12px;
+  font-size: 13.5px;
   font-weight: 500;
+  line-height: 1.4;
   color: var(--c-text-secondary);
   text-decoration: none;
-  transition: all .15s;
-  margin-bottom: 2px;
+  transition: background-color .16s ease, color .16s ease;
   position: relative;
 }
 .nav-item:hover {
-  background: #f5f7fa;
-  color: #1f2a3a;
+  background: rgba(0, 0, 0, .045);
+  color: var(--c-text);
   text-decoration: none;
 }
 
@@ -1329,9 +1353,9 @@ html[data-theme='dark'] .map-settings-panel {
   left: 0;
   top: 0;
   z-index: 0;
-  border-radius: 8px;
-  background: #eaf2ff;
-  box-shadow: inset 0 0 0 1px rgba(23, 105, 210, .14);
+  border-radius: 12px;
+  background: var(--c-primary, #0071e3);
+  box-shadow: 0 6px 16px rgba(0, 113, 227, .28);
   pointer-events: none;
   will-change: transform, width, height;
   transition:
@@ -1345,33 +1369,43 @@ html[data-theme='dark'] .map-settings-panel {
 .nav-item,
 .nav-item--single { z-index: 1; }
 
-/* 选中态只改文字/图标色，不再画每项背景 */
+/* 选中态：纯色高亮块由 .nav-highlight 承担，文字/图标反白 */
 .nav-item--current {
-  color: #1769d2;
+  color: #fff;
   font-weight: 600;
 }
 .nav-item--current .nav-item-icon,
-.nav-item--current .nav-icon { color: #1769d2; }
+.nav-item--current .nav-icon { color: #fff; }
+.nav-item--current:hover,
+.nav-item--current:focus-visible {
+  background: transparent;
+  color: #fff;
+}
 
 /* 深色模式: 侧边栏导航 hover 柔和化 + 高亮块 */
 html[data-theme='dark'] .nav-group-title:hover {
-  background: rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .06);
   color: var(--c-text);
 }
 html[data-theme='dark'] .nav-item--single:hover,
 html[data-theme='dark'] .nav-item:hover {
-  background: rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .06);
   color: var(--c-text);
 }
 html[data-theme='dark'] .nav-highlight {
-  background: rgba(10, 132, 255, .22);
-  box-shadow: inset 0 0 0 1px rgba(138, 180, 255, .28);
+  background: #0a84ff;
+  box-shadow: 0 6px 18px rgba(10, 132, 255, .35);
 }
-html[data-theme='dark'] .nav-item--current { color: #8ab4ff; }
+html[data-theme='dark'] .nav-item--current { color: #fff; }
 html[data-theme='dark'] .nav-item--current .nav-item-icon,
-html[data-theme='dark'] .nav-item--current .nav-icon { color: #8ab4ff; }
-html[data-theme='dark'] .nav-group-title--open { color: #8ab4ff; }
-html[data-theme='dark'] .nav-group-title--open .nav-group-icon { color: #8ab4ff; }
+html[data-theme='dark'] .nav-item--current .nav-icon { color: #fff; }
+html[data-theme='dark'] .nav-item--current:hover { background: transparent; color: #fff; }
+html[data-theme='dark'] .nav-group-title--open {
+  background: rgba(10, 132, 255, .16);
+  color: #8ab4ff;
+}
+html[data-theme='dark'] .nav-group-title--open .nav-group-icon,
+html[data-theme='dark'] .nav-group-title--open .nav-group-arrow { color: #8ab4ff; }
 
 /* ---------- 底部用户 ---------- */
 .sidebar-footer {
@@ -1380,19 +1414,32 @@ html[data-theme='dark'] .nav-group-title--open .nav-group-icon { color: #8ab4ff;
   flex-shrink: 0;
 }
 
+/* 分组小标题（如「账号」）：字号更小、颜色更浅、上下留白更大 */
+.sidebar-section-label {
+  padding: 10px 12px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  line-height: 1.4;
+  color: var(--c-text-muted, var(--c-text-secondary));
+  opacity: .85;
+  user-select: none;
+}
+
 .sidebar-user {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  min-height: 44px;
+  padding: 7px 10px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: background .15s;
+  transition: background-color .16s ease;
 }
-.sidebar-user:hover { background: #f5f7fa; }
+.sidebar-user:hover { background: rgba(0, 0, 0, .045); }
 
 html[data-theme='dark'] .sidebar-user:hover {
-  background: rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .06);
 }
 
 .sidebar-user-avatar {
@@ -1422,10 +1469,11 @@ html[data-theme='dark'] .sidebar-user:hover {
 .sidebar-user-arrow {
   display: flex;
   align-items: center;
+  margin-left: auto;
   color: var(--c-text-muted);
-  transition: transform .2s;
+  transition: transform .2s ease, color .18s ease;
 }
-.sidebar-user-arrow.expanded { transform: rotate(180deg); }
+.sidebar-user-arrow.expanded { transform: rotate(90deg); }
 
 .sidebar-user-menu { padding: 4px 0 0; }
 
@@ -1433,8 +1481,8 @@ html[data-theme='dark'] .sidebar-user:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 6px;
+  padding: 9px 12px;
+  border-radius: 10px;
   font-size: 13px;
   color: var(--c-text);
   text-decoration: none;
