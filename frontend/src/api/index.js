@@ -42,11 +42,11 @@ api.interceptors.request.use(async config => {
 let refreshingPromise = null
 
 /**
- * 自动续签：仅当用户在 10 分钟活跃窗口内才尝试调 /auth/refresh。
+ * 自动续签：用户在活跃窗口内（默认 7 天）才尝试调 /auth/refresh。
  * 返回是否续签成功（成功则已更新 localStorage 中的 token）。
  */
 function tryAutoRenew() {
-  // 前端判定：10 分钟内活跃过才续签，否则不续（交给跳登录）
+  // 前端判定：活跃窗口内（默认 7 天）才续签，否则不续（交给跳登录）
   if (!isWithinActiveWindow()) return Promise.resolve(false)
   if (!refreshingPromise) {
     refreshingPromise = api.post('/auth/refresh')

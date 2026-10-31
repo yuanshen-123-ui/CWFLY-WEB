@@ -3,7 +3,7 @@ import App from './App.vue'
 import router from './router'
 import pinia from './store'
 import { reportPageView } from './utils/deviceFp'
-import { touchLastActive, isTokenExpired, isWithinActiveWindow } from './utils/jwt'
+import { touchLastActive, isTokenExpired, isTokenNearExpiry, isWithinActiveWindow } from './utils/jwt'
 import api from './api'
 import tableSort from './utils/tableSort'
 import { showBanner, navigateToLoginAfterBanner } from './utils/banner'
@@ -77,43 +77,53 @@ function checkSessionOnVisible() {
   const token = localStorage.getItem('cw_token')
   if (!token) return
   if (window.location.pathname.startsWith('/login')) return
-  // 离开超过 10 分钟（含切后台期间）→ 判定过期，弹横幅提示后等动画结束再跳登录
+
+  // 长时间（默认 7 天）没回来：清登录态，回登录页
   if (!isWithinActiveWindow()) {
     localStorage.removeItem('cw_token')
     localStorage.removeItem('cw_user')
     localStorage.removeItem('cw_last_active')
-    if (!window.location.pathname.startsWith('/login')) {
-      showBanner('登录已过期,请重新登录!')
-      navigateToLoginAfterBanner()
-    }
+    showBanner('登录已过期，请重新登录')
+    navigateToLoginAfterBanner()
     return
   }
-  // 10 分钟内活跃 → 刷新活跃时间，并尝试续签（token 临近过期/已过期时）
+
   touchLastActive()
+
+  // 已过期：尝试用宽限期续签，失败才登出
   if (isTokenExpired()) {
-    api.post('/auth/refresh')
-      .then(res => {
-        const newToken = res?.data?.token
-        if (newToken) {
-          localStorage.setItem('cw_token', newToken)
-          const user = res.data?.user
-          if (user) localStorage.setItem('cw_user', JSON.stringify(user))
-          touchLastActive()
-        } else {
-          throw new Error('no token')
-        }
-      })
-      .catch(() => {
-        localStorage.removeItem('cw_token')
-        localStorage.removeItem('cw_user')
-        localStorage.removeItem('cw_last_active')
-        if (!window.location.pathname.startsWith('/login')) {
-          showBanner('登录已过期,请重新登录!')
-          navigateToLoginAfterBanner()
-        }
-      })
+    renewSession(true)
+    return
+  }
+  // 临期（不足 1 小时）：静默续签，用户完全无感；失败也不影响当前会话
+  if (isTokenNearExpiry(60 * 60 * 1000)) {
+    renewSession(false)
   }
 }
+
+/** 静默续签；logoutOnFail=true 表示续签失败就必须重新登录 */
+function renewSession(logoutOnFail) {
+  api.post('/auth/refresh')
+    .then(res => {
+      const newToken = res?.data?.token
+      if (!newToken) throw new Error('no token')
+      localStorage.setItem('cw_token', newToken)
+      const user = res.data?.user
+      if (user) localStorage.setItem('cw_user', JSON.stringify(user))
+      touchLastActive()
+    })
+    .catch(() => {
+      if (!logoutOnFail) return
+      localStorage.removeItem('cw_token')
+      localStorage.removeItem('cw_user')
+      localStorage.removeItem('cw_last_active')
+      if (!window.location.pathname.startsWith('/login')) {
+        showBanner('登录已过期，请重新登录')
+        navigateToLoginAfterBanner()
+      }
+    })
+}
+
 // 页面切回可见（从后台/其他标签页返回）时检查
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) checkSessionOnVisible()
