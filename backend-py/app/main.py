@@ -25,7 +25,9 @@ from app.middleware.rate_limit import (
     RateLimitExceeded,
     RateLimitMiddleware,
 )
+from app.middleware.response_headers import ResponseHeadersMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.middleware.ua_filter import UserAgentFilterMiddleware
 from app.routers import iter_routers
 from app.services.bootstrap import init_admin
 from app.utils.json_compat import JSJSONResponse, js_iso
@@ -87,8 +89,10 @@ app.add_middleware(
     expose_headers=["X-Renewed-Token"],
 )
 app.add_middleware(AccessLogMiddleware)          # morgan
+app.add_middleware(ResponseHeadersMiddleware)     # 回填 X-Renewed-Token / RateLimit-*
 app.add_middleware(SecurityHeadersMiddleware)    # helmet / 安全响应头
 app.add_middleware(IpBanMiddleware)              # IP 封禁（P3 完整实现）
+app.add_middleware(UserAgentFilterMiddleware)    # UA 过滤（对齐 Node BLOCKED_AGENTS）
 app.add_middleware(RateLimitMiddleware, limit=GLOBAL_API)  # /api 全局 60 次/分钟
 
 # ---------- 静态文件（路径与 Node 完全一致） ----------
@@ -98,6 +102,7 @@ for sub in ("avatars", "posters", "backgrounds"):
         StaticFiles(directory=f"uploads/{sub}", check_dir=False),
         name=f"uploads-{sub}",
     )
+app.mount("/uploads/airports", StaticFiles(directory="app/data", check_dir=False), name="airport-data")
 app.mount("/uploads", StaticFiles(directory="uploads", check_dir=False), name="uploads")
 
 

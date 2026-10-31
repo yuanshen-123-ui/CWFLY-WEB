@@ -110,7 +110,10 @@ async def get_current_user(
         try:
             fresh = await users.find_user_public(db, user.cid)
             if fresh:  # 用户已删除则不再续签
-                response.headers["X-Renewed-Token"] = sign_token(fresh)
+                request.state.renewed_token = sign_token(fresh)
+                # 同时保留注入 Response 的写法（普通 JSON 返回时也生效）；
+                # 路由直接 return Response 时由 ResponseHeadersMiddleware 回填。
+                response.headers["X-Renewed-Token"] = request.state.renewed_token
         except Exception:
             pass
 

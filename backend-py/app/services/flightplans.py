@@ -34,7 +34,7 @@ SHARE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 _COLUMNS = (
     "id, userId, callsign, flightType, aircraft, wakeCategory, equipment, transponder, "
     "depIcao, depTime, cruiseAlt, cruiseSpeed, arrIcao, alternate, flightTime, endurance, "
-    "route, remarks, status, filedAt, shareId, syncFsd"
+    "route, remarks, shareId, filedAt, syncFsd"
 )
 
 _SHARE_COLUMNS = (

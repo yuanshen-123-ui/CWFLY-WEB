@@ -64,6 +64,11 @@ def rate_limiter(limit: Limit) -> Callable[[Request, Response], Response | None]
     async def _dep(request: Request, response: Response) -> None:
         ip = get_client_ip(request) or "unknown"
         allowed, remaining, reset = _consume(limit, ip)
+        request.state.rate_limit_headers = {
+            "RateLimit-Limit": str(limit.max_requests),
+            "RateLimit-Remaining": str(remaining),
+            "RateLimit-Reset": str(reset),
+        }
         response.headers["RateLimit-Limit"] = str(limit.max_requests)
         response.headers["RateLimit-Remaining"] = str(remaining)
         response.headers["RateLimit-Reset"] = str(reset)
