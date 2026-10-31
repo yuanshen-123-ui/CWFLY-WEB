@@ -225,6 +225,23 @@ pm2 reload cwfly-api
 
 ---
 
+## 后端迁移：Node/Express → Python/FastAPI（进行中）
+
+目标：用 `backend-py/`（FastAPI + SQLAlchemy 2.0 async + asyncmy）替换现有 `backend/`（Express + Prisma），
+**接口 100% 兼容、前端零改动**；迁移期间两套后端并存，由 Nginx 按路径前缀灰度切流，全部验证通过后才下线 Node。
+
+| 阶段 | 内容 | 状态 |
+|---|---|---|
+| P0 | 基础设施（JWT 密钥轮换/权限/限流/日志/异常/静态/Alembic baseline） | ✅ 完成 |
+| P1 | `/api/auth`（10 端点：登录/注册/续签/改密/找回） | ✅ 完成 |
+| P1.5 | `/api/flightplans`（含 FSD 管理口） + `/api/profile` 上传 | ⏳ 进行中 |
+| P2 | `weather` / `events` / `tickets` / `forum` 等 18 个业务路由 | ⏳ |
+| P3 | `admin`（83 端点）/ `security` / Socket.IO / 定时任务 | ⏳ |
+| P4 | Nginx 全量切流 → 删除 `backend/`（Node/Express） | ⏳ |
+
+详细说明（启动、灰度配置、兼容红线、本地实测结果）见 [backend-py/README.md](backend-py/README.md)。
+
+---
 ## 许可证
 
 本项目采用 **GNU General Public License v3.0**（GPL-3.0）开源。

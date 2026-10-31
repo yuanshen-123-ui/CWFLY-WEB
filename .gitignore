@@ -14,3 +14,11 @@ dev.db
 *.key
 .DS_Store
 Thumbs.db
+# Python（backend-py）
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+backend-py/logs/
+backend-py/uploads/
