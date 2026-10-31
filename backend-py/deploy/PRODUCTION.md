@@ -184,3 +184,20 @@ from app.routers.captcha import require_pow_token
 @router.post("/xxx", dependencies=[Depends(require_pow_token)])
 async def some_action(): ...
 ```
+
+## 十三、机器人管制上下线播报（2026-10-31）
+
+| 项 | 说明 |
+|---|---|
+| 播报群 | `ROBOT_NOTIFY_GROUP_ID`（默认 `868785291`），与真人管制播报群（`NOTIFY_GROUP_ID=1031828415`）分开 |
+| 触发 | 机器人服务就绪（OneBot 连接 + FSD 连接）→ 上线播报；`pm2 restart/stop`（SIGINT/SIGTERM）→ 下线播报；FSD 侧出现机器人管制呼号同样触发 |
+| 识别 | `ROBOT_ATC_CALLSIGNS`（默认取 `FSD_BOT_CALLSIGN=CW-BOT`）或 `FSD_BOT_CID` |
+| 文案 | 带 emoji 的卡片（🤖🛫 上线 / 🤖💤 下线，含席位、频率、时间、可用指令） |
+| 去重 | 同一状态只发一次，避免重连刷屏 |
+| 代码 | `bot/src/index.js`（`buildRobotCard` / `announceRobotPresence` / `shutdownBot`） |
+
+## 十四、JWT 有效期
+
+- 生产 `.env`：`JWT_EXPIRES=6h`（2026-10-31 由 2h 调整为 6h）
+- 活跃请求在剩余 < `JWT_REFRESH_BEFORE_SECONDS`（120s）时由中间件滑动续期（`X-Renewed-Token`）
+- 前端文案（Cookie 政策 / 隐私政策）已同步为「6 小时」

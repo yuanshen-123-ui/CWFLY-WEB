@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # ---- JWT（与 Node 完全一致）----
     JWT_SECRET: str = ""
-    JWT_EXPIRES: str = "10m"
+    JWT_EXPIRES: str = "6h"
     JWT_REFRESH_GRACE_SECONDS: int = 600
     JWT_REFRESH_BEFORE_SECONDS: int = 120
 
@@ -93,7 +93,7 @@ class Settings(BaseSettings):
 
     @property
     def jwt_expires_seconds(self) -> int:
-        return parse_duration_seconds(self.JWT_EXPIRES, 600)
+        return parse_duration_seconds(self.JWT_EXPIRES, 21600)
 
     @property
     def async_database_url(self) -> str:

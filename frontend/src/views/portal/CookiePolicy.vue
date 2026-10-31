@@ -58,7 +58,7 @@
               <tr>
                 <td><code>cw_token</code></td><td>localStorage</td>
                 <td>登录凭证（JWT），请求时通过 Authorization 头携带；活跃时自动续期</td>
-                <td>2 小时（滑动续期），退出登录即清除</td><td>无法登录或登录后频繁掉线</td>
+                <td>6 小时（滑动续期），退出登录即清除</td><td>无法登录或登录后频繁掉线</td>
               </tr>
               <tr>
                 <td><code>cw_user</code></td><td>localStorage</td>
@@ -68,7 +68,7 @@
               <tr>
                 <td><code>cw_last_active</code></td><td>localStorage</td>
                 <td>记录最近一次操作时间，用于判断登录是否过期、是否自动续期</td>
-                <td>2 小时，退出清除</td><td>自动续期判断不准确</td>
+                <td>6 小时，退出清除</td><td>自动续期判断不准确</td>
               </tr>
               <tr>
                 <td><code>cw_theme</code></td><td>localStorage</td>
