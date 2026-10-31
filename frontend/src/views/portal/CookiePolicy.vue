@@ -107,12 +107,6 @@
             </thead>
             <tbody>
               <tr>
-                <td>Cloudflare Turnstile</td>
-                <td>登录、注册、找回密码、发送验证码</td>
-                <td>人机校验，防止撞库与批量注册；可能设置 <code>cf_clearance</code>、<code>__cf_bm</code> 等安全类 Cookie，并接收浏览器环境信息与 IP</td>
-                <td><a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare 隐私政策</a></td>
-              </tr>
-              <tr>
                 <td>高德地图 JSAPI</td>
                 <td>在线地图、机场与航图相关页面</td>
                 <td>地图瓦片与交互；可能写入地图初始化相关的本地存储或 Cookie</td>
@@ -138,7 +132,7 @@
       <div class="card p-lg mb-lg">
         <h3 class="mb-md">五、设备指纹与访问记录（非 Cookie）</h3>
         <p class="text-secondary" style="line-height:1.8;">
-          为防范批量注册、撞库、刷接口与封禁规避，本站会在你访问时生成一个<strong>设备指纹</strong>：
+          为防范批量注册、撞库、刷接口与封禁规避，本站会（1）在浏览器本地计算工作量证明（PoW，纯前端 SHA-256，不请求第三方）；（2）在你访问时生成一个<strong>设备指纹</strong>：
           由浏览器 User-Agent、语言、平台、CPU 线程数、设备内存、屏幕参数、时区、触点数量以及
           Canvas / WebGL 渲染特征汇总后哈希得到 8 位字符串。<strong>该指纹只在你当前页面会话的内存中计算，
           不写入 localStorage</strong>，随请求头 <code>X-Device-Fp</code> 发送到服务器，用于安全风控。

@@ -1,11 +1,11 @@
 """/api/verify 路由（逐接口对齐 Node src/routes/verify.js）。
 
 端点：
-- POST /api/verify/send   发送邮箱验证码（限流 → 60s 冷却 → Turnstile → 邮箱占用 → 发信）
+- POST /api/verify/send   发送邮箱验证码（限流 → 60s 冷却 → PoW → 邮箱占用 → 发信）
 - POST /api/verify/check  校验邮箱验证码（一次性，通过即失效）
 
 调用方：前端注册页 Register.vue（发送验证码）、登录二次验证 Login.vue。
-依赖：app/services/mailer.py（等价 src/utils/mailer.js）、app/services/turnstile.py。
+依赖：app/services/mailer.py（等价 src/utils/mailer.js）、app/routers/captcha.py（PoW）。
 
 限流（Node 侧定义在 security.js，被 verify.js import）：
 - verifyLimiter   windowMs 15min, max 5,  key = 客户端 IP，message「验证码请求过于频繁，请稍后再试」
@@ -36,7 +36,6 @@ from app.middleware.rate_limit import (
 from app.services import users
 from app.services.mailer import generate_code, send_verify_code, store_code, verify_code
 from app.routers.captcha import require_pow_token
-from app.services.turnstile import verify_turnstile
 from app.utils.client import get_client_ip
 from app.utils.json_compat import JSJSONResponse
 
@@ -170,7 +169,7 @@ async def _json_body(request: Request) -> dict[str, Any]:
     dependencies=[Depends(verify_limiter), Depends(code_fp_limiter), Depends(require_pow_token)],
 )
 async def send_code(request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
-    """守卫链：IP 限流 → 设备指纹限流 → 60s 冷却(DB) → Turnstile → 邮箱占用 → 发信。
+    """守卫链：IP 限流 → 设备指纹限流 → 60s 冷却(DB) → PoW → 邮箱占用 → 发信。
 
     返回：200（带 cooldown:60）/ 400 / 404 / 409 / 429（带剩余秒 cooldown）/ 502 / 500。
     """
@@ -200,18 +199,12 @@ async def send_code(request: Request, response: Response, db: AsyncSession = Dep
         if remain > 0:
             return out(fail(429, f"发送过于频繁，请 {remain} 秒后重试", cooldown=remain))
 
-        turnstile_token = body.get("turnstileToken")
+        # 人机验证：由 require_pow_token 依赖统一把关（Cloudflare Turnstile 已下线）
         if p == "login":
-            # login：真实 siteverify（token 一次性在此消耗）+ 邮箱必须已绑定账号
+            # login：邮箱必须已绑定账号
             owner = await users.find_user_by_email(db, email)
             if not owner:
                 return out(fail(404, "该邮箱未绑定任何账号"))
-            ts = await verify_turnstile(turnstile_token, get_client_ip(request))
-            if not ts.ok:
-                return out(fail(ts.status, ts.message))
-        elif not turnstile_token:
-            # register / bind：此处仅做「token 非空」预检，siteverify 在 /auth/register 执行
-            return out(fail(400, "请完成人机验证"))
 
         # 检查邮箱是否已被绑定
         if p in ("register", "bind"):

@@ -122,7 +122,7 @@ pm2 reload cwfly-api-py 2>/dev/null || pm2 restart cwfly-api-py 2>/dev/null
 > 首屏数据请求由 1.7s 降到 0.1s 量级。若还慢，下一层优化点是前端资源体积（three.js/Charts 懒加载）与 CDN。
 
 ### 生产环境变量（关键）
-- PM2 启动时显式注入 `NODE_ENV=production`（此前沿用 `.env` 的 development）：保证 Turnstile 在缺密钥时 fail-closed、
+- PM2 启动时显式注入 `NODE_ENV=production`（此前沿用 `.env` 的 development）：保证生产环境按生产分支逻辑运行、
   邮件走真实 SMTP 发送而不是开发模式日志；
 - `SOCKETIO_REDIS_URL=redis://127.0.0.1:6379/0`（API 与 worker 都要设置，天气共享缓存也依赖它）；
 - CORS/Socket.IO 允许来源：`https://www.cwflysim.cn` + `https://cwflysim.cn`（裸域）+ 开发地址（仅非生产），
@@ -159,6 +159,7 @@ pm2 reload cwfly-api-py 2>/dev/null || pm2 restart cwfly-api-py 2>/dev/null
 | 前端 | `src/workers/pow.worker.js`（手写同步 SHA-256，无第三方、无 crypto.subtle）、`src/components/PoWCaptcha.vue`（render 返回 null，不渲染任何 DOM）、`src/utils/pow.js`（内存令牌 + 请求头注入） |
 | CSP | 必须允许 `worker-src 'self' blob:;`（原先仅 `blob:` 会拦截 Worker）；已在主站/API vhost 更新 |
 | 失败策略 | 全静默：网络/超时/校验失败均退避重试（3~8s 随机），令牌 8 分钟静默续算 |
+| 第三方 | 不使用 Cloudflare Turnstile（2026-10-31 已删除前后端接入与 CSP 域名），不请求任何第三方验证服务 |
 
 **已强制接入的接口（2026-10-31）**：
 
@@ -169,7 +170,7 @@ pm2 reload cwfly-api-py 2>/dev/null || pm2 restart cwfly-api-py 2>/dev/null
 | `POST /api/auth/forgot-password` | 邮件轰炸、撞库辅助 |
 | `POST /api/auth/reset-password` | 验证码爆破 |
 
-未接入：`/auth/login`、`/auth/login-verify`（已有 IP/账号限流 + Turnstile，避免自动化客户端被误伤）。
+`/auth/login`、`/auth/login-verify` 同样接入 PoW（Cloudflare Turnstile 已于 2026-10-31 全面下线，人机验证全部由本地 PoW 承担；邮箱验证码接口同时保留 60s 冷却与邮箱绑定校验）。
 前端会在发送上述接口前**静默等待令牌最多 2.5s**（`waitForPowToken`），无任何 UI 提示；
 若浏览器禁用 Worker 等极端情况拿不到令牌，后端返回 403「人机验证未通过，请刷新页面后重试」。
 

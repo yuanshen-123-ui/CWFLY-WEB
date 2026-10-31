@@ -33,7 +33,6 @@ from app.services.token import (
     sign_token,
     verify_token_for_refresh,
 )
-from app.services.turnstile import verify_turnstile
 from app.utils.client import get_client_ip, get_device_fp, get_user_agent
 from app.utils.json_compat import JSJSONResponse
 from app.utils.security import (
@@ -143,10 +142,6 @@ async def register(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     if not await verify_code(email, email_code):
         return fail(400, "邮箱验证码错误或已过期")
 
-    ts = await verify_turnstile(body.get("turnstileToken"), register_ip)
-    if not ts.ok:
-        return fail(ts.status, ts.message)
-
     register_user_agent = get_user_agent(request)
     created = await users.create_user(
         db,
@@ -203,7 +198,10 @@ async def register(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
 
 
 # ============================ 登录 ============================
-@router.post("/login", dependencies=[Depends(login_limiter)])
+@router.post(
+    "/login",
+    dependencies=[Depends(login_limiter), Depends(require_pow_token)],
+)
 async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     try:
         body = await request.json()
@@ -278,7 +276,10 @@ async def login(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
 
 
 # ============================ 登录二次验证（新 IP） ============================
-@router.post("/login-verify", dependencies=[Depends(login_limiter)])
+@router.post(
+    "/login-verify",
+    dependencies=[Depends(login_limiter), Depends(require_pow_token)],
+)
 async def login_verify(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     try:
         body = await request.json()

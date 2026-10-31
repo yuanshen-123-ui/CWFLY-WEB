@@ -54,7 +54,6 @@ class Settings(BaseSettings):
 
     # ---- 第三方 ----
     OPENAPI_KEY: str = ""
-    TURNSTILE_SECRET_KEY: str = ""
     FSD_WHAZZUP_FILE: str = ""
     FSD_SYS_CID: str = ""
     FSD_SYS_PASSWORD: str = ""

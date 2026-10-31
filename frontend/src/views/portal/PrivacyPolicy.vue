@@ -128,7 +128,7 @@
       <div class="card p-lg mb-lg">
         <h3 class="mb-md">四、Cookie 与本地存储</h3>
         <p class="text-secondary" style="line-height:1.8;">
-          本站使用 localStorage 保存登录凭证与偏好设置，不使用广告或第三方统计 Cookie；
+          本站使用 localStorage 保存登录凭证与偏好设置，不使用广告或第三方统计 Cookie；防滥用采用浏览器本地计算的工作量证明（PoW），不引入第三方人机验证服务；
           设备指纹只存在于页面内存。完整的存储清单、第三方组件与管理方式见
           <router-link to="/cookie-policy">《Cookie 政策》</router-link>。
         </p>
@@ -150,11 +150,6 @@
                 <td>邮件推送服务商（SMTP）</td>
                 <td>发送验证码、找回密码、账号通知</td>
                 <td>你的邮箱地址、邮件主题与正文</td>
-              </tr>
-              <tr>
-                <td>Cloudflare（Turnstile）</td>
-                <td>登录 / 注册人机校验，防自动化攻击</td>
-                <td>IP、浏览器环境信息、校验结果</td>
               </tr>
               <tr>
                 <td>高德地图、Mapbox、OpenWeatherMap</td>

@@ -3,7 +3,7 @@ import { getDeviceFp } from '@/utils/deviceFp'
 import { applyPowHeader, getPowToken, waitForPowToken } from '@/utils/pow'
 
 // 需 PoW 的敏感接口（相对 baseURL /api）：验证码、注册、找回/重置密码
-const POW_ENFORCED = ['/verify/send', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
+const POW_ENFORCED = ['/verify/send', '/auth/login', '/auth/login-verify', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
 import { isWithinActiveWindow } from '@/utils/jwt'
 import { showBanner, navigateToLoginAfterBanner } from '@/utils/banner'
 

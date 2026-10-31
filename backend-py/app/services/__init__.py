@@ -5,7 +5,6 @@ __all__ = [
     "token",
     "mailer",
     "device_ban",
-    "turnstile",
     "login_lock",
     "ip_hopping",
     "users",
