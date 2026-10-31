@@ -49,3 +49,16 @@ ssh root@<server> 'bash /tmp/deploy.sh --rollback'
 2. **限流存储**：目前为进程内滑动窗口（单实例）；若扩到多实例需换 Redis/MySQL 共享 store。
 3. **Node 代码保留**：`/opt/cwfly/backend` 与仓库 `backend/` 先保留 1 周观察期，确认无回滚需求后再删除。
 4. **观察重点**：登录/注册、飞行计划提交（FSD 广播）、活动报名、上传（头像/海报/会议资料）、管理后台、Socket.IO 在线人数。
+
+## 六、切换时必须同步修改的运维脚本（已完成）
+
+`/opt/cwfly/ddos-hardening.sh`（cron 每分钟执行 `recover`）原先监控 `http://127.0.0.1:3000/health` 并
+`pm2 reload cwfly-api`，Node 停止后会被它自动拉起（实测发生过一次）。切换时已改为：
+
+```bash
+RECOVER_API="http://127.0.0.1:3001/health"
+pm2 reload cwfly-api-py 2>/dev/null || pm2 restart cwfly-api-py 2>/dev/null
+# 备份：/opt/cwfly/ddos-hardening.sh.bak-py-cutover-<时间戳>
+```
+
+> 其它 cron（bot 健康检查 `cwfly-bot-healthcheck.sh`、数据库备份 `db_backup.sh`）与本次切换无关，未改动。
