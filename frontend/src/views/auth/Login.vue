@@ -52,6 +52,8 @@
       <div class="text-center mt-md text-sm text-muted">
         还没有账号？ <router-link to="/register">立即注册</router-link>
       </div>
+
+      <p class="text-xs mt-sm text-muted" style="line-height:1.7;text-align:center;">登录即表示你已阅读并同意 <router-link to="/user-agreement">《用户协议》</router-link> 与 <router-link to="/privacy-policy">《隐私政策》</router-link></p>
     </div>
   </div>
 </template>

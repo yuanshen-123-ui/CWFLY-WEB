@@ -17,7 +17,9 @@
         <p>&copy; {{ new Date().getFullYear() }} CWFLY &mdash; All rights reserved.</p>
         <p class="text-sm text-muted">本站由 CW 连飞网络提供技术支持</p>
         <div class="footer-links">
-          <router-link to="/cookie-policy">Cookie Policy</router-link>
+          <router-link to="/user-agreement">用户协议</router-link>
+          <router-link to="/privacy-policy">隐私政策</router-link>
+          <router-link to="/cookie-policy">Cookie 政策</router-link>
         </div>
       </div>
     </footer>

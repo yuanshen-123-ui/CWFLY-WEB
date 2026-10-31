@@ -10,19 +10,23 @@
             </svg>
           </div>
           <div class="cookie-consent__text">
-            <p class="cookie-consent__title">本网站使用 Cookie</p>
+            <p class="cookie-consent__title">本网站使用必要的本地存储</p>
             <p class="cookie-consent__desc">
-              我们使用 Cookie 来改善您的浏览体验、分析网站流量并为您提供个性化内容。
-              您可以选择接受所有 Cookie，或仅接受必要 Cookie。
-              <router-link to="/portal/cookie-policy" class="cookie-consent__link" @click="dismiss">
-                了解更多 →
-              </router-link>
-            </p>
+                我们仅使用必要的本地存储来记住登录状态、主题与偏好，不使用广告或第三方统计 Cookie。
+                你可以继续浏览，或查看《Cookie 政策》与《隐私政策》了解详情。
+                <router-link to="/cookie-policy" class="cookie-consent__link" @click="dismiss">
+                  查看 Cookie 政策 →
+                </router-link>
+                <span style="opacity:.35;margin:0 4px;">·</span>
+                <router-link to="/privacy-policy" class="cookie-consent__link" @click="dismiss">
+                  查看隐私政策 →
+                </router-link>
+              </p>
           </div>
         </div>
         <div class="cookie-consent__actions">
-          <button class="btn btn-outline btn-sm" @click="reject">仅必要</button>
-          <button class="btn btn-primary btn-sm" @click="accept">接受全部</button>
+          <button class="btn btn-outline btn-sm" @click="reject">仅必要（推荐）</button>
+          <button class="btn btn-primary btn-sm" @click="accept">接受</button>
         </div>
       </div>
     </div>

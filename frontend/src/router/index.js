@@ -22,7 +22,9 @@ const routes = [
       { path: 'about', name: 'AboutUs', meta: { title: '关于我们' }, component: () => import('@/views/portal/AboutUs.vue') },
       { path: 'meetings', name: 'MeetingRecords', meta: { title: '会议记录' }, component: () => import('@/views/portal/MeetingRecords.vue') },
       { path: 'controller-public', name: 'ControllerPublic', meta: { title: '职员公示' }, component: () => import('@/views/portal/Staff.vue') },
-      { path: 'cookie-policy', name: 'CookiePolicy', meta: { title: 'Cookie 政策' }, component: () => import('@/views/portal/CookiePolicy.vue') }
+      { path: 'cookie-policy', name: 'CookiePolicy', meta: { title: 'Cookie 政策' }, component: () => import('@/views/portal/CookiePolicy.vue') },
+      { path: 'privacy-policy', name: 'PrivacyPolicy', meta: { title: '隐私政策' }, component: () => import('@/views/portal/PrivacyPolicy.vue') },
+      { path: 'user-agreement', name: 'UserAgreement', meta: { title: '用户协议' }, component: () => import('@/views/portal/UserAgreement.vue') }
     ]
   },
 
@@ -126,7 +128,7 @@ const RATING_THRESHOLDS = {
 // 路由守卫：检查登录状态和 rating 节点权限；token 过期时前端判定续签
 router.beforeEach(async (to, from, next) => {
   // 公开页
-  const publicPages = ['/', '/about', '/meetings', '/controller-public', '/cookie-policy', '/login', '/register', '/oauth/authorize', '/banned', '/internet-banned']
+  const publicPages = ['/', '/about', '/meetings', '/controller-public', '/cookie-policy', '/privacy-policy', '/user-agreement', '/login', '/register', '/oauth/authorize', '/banned', '/internet-banned']
 
   // 不存在的页面：已登录 → 返回仪表盘；未登录 → 跳转登录页
   if (!to.matched.length) {
