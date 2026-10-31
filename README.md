@@ -237,7 +237,7 @@ pm2 reload cwfly-api
 | P1.5 | `/api/flightplans`（含 FSD 管理口）+ `/api/profile` 上传 | ✅ 完成 |
 | P2 | `weather` / `events` / `tickets` / `forum` 等 18 个业务路由 | ✅ 完成（168/168 端点） |
 | P3 | `admin`（80 端点）/ `security` / Socket.IO / 定时任务 | ✅ 完成 |
-| P4 | Nginx 全量切流 → 删除 `backend/`（Node/Express） | ⏳ |
+| P4 | Nginx 全量切流 → **生产已切换 Python**（Node 已停止，观察 1 周后删除 `backend/`） | ✅ 2026-10-31 |
 
 详细说明（启动、灰度配置、兼容红线、本地实测结果）见 [backend-py/README.md](backend-py/README.md)。
 
