@@ -37,6 +37,7 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import logging
+import os
 import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qs
@@ -77,7 +78,19 @@ EV_FSD_UPDATE = "fsd:update"
 
 
 # ---------------------------------------------------------------- 服务器实例
+# ---- 多 worker 实时一致性：配置 Redis 时启用共享 manager ----
+_redis_url = os.getenv("SOCKETIO_REDIS_URL", "").strip()
+_client_manager = None
+if _redis_url:
+    try:
+        _client_manager = socketio.AsyncRedisManager(_redis_url)
+        logging.getLogger("cwfly.sockets").info("[Socket.IO] 使用 Redis manager: %s", _redis_url)
+    except Exception as _exc:  # noqa: BLE001
+        logging.getLogger("cwfly.sockets").warning("[Socket.IO] Redis manager 初始化失败，回退进程内: %s", _exc)
+
+
 sio = socketio.AsyncServer(
+    client_manager=_client_manager,
     async_mode="asgi",
     cors_allowed_origins=[settings.cors_origin],
     cors_credentials=True,

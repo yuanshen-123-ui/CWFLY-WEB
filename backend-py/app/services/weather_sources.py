@@ -400,6 +400,15 @@ _cache: dict[str, dict[str, Any]] = {}
 
 
 def cache_get(code: str) -> Optional[dict[str, Any]]:
+    # 优先共享缓存（Redis，多 worker/预热进程可见），其次进程内
+    try:
+        from app.services import weather_cache
+
+        shared = weather_cache.get(code)
+        if shared is not None:
+            return shared
+    except Exception:  # noqa: BLE001
+        pass
     hit = _cache.get(code)
     if hit and (time.time() * 1000 - float(hit["at"])) < float(hit["ttl"]):
         return hit["payload"]
@@ -407,6 +416,13 @@ def cache_get(code: str) -> Optional[dict[str, Any]]:
 
 
 def cache_put(code: str, payload: dict[str, Any], ttl_ms: int) -> None:
+    try:
+        from app.services import weather_cache
+
+        weather_cache.put(code, payload, ttl_ms)
+    except Exception:  # noqa: BLE001
+        pass
+
     _cache[code] = {"at": time.time() * 1000, "ttl": ttl_ms, "payload": payload}
     if len(_cache) > CACHE_MAX:
         oldest = min(_cache.items(), key=lambda kv: kv[1]["at"], default=None)
@@ -416,6 +432,87 @@ def cache_put(code: str, payload: dict[str, Any], ttl_ms: int) -> None:
 
 def clear_cache() -> None:
     _cache.clear()
+
+
+
+
+# ==================== 抓取入口（路由与预热进程共用） ====================
+async def fetch_payload(code: str) -> dict[str, Any]:
+    """抓取并组装 /api/weather 的完整响应体（内部带缓存）。"""
+    import asyncio as _asyncio
+
+    cached = cache_get(code)
+    if cached is not None:
+        return cached
+
+    metar = ""
+    taf = ""
+    source: Optional[str] = None
+    tried: list[str] = []
+
+    awc_out, vatsim_out = await _asyncio.gather(
+        from_aviation_weather(code), from_vatsim(code), return_exceptions=True
+    )
+    awc_val: dict[str, str] = {} if isinstance(awc_out, BaseException) or not awc_out else awc_out
+    vatsim_val: dict[str, str] = (
+        {} if isinstance(vatsim_out, BaseException) or not vatsim_out else vatsim_out
+    )
+    if awc_val.get("metar"):
+        metar, source = awc_val["metar"], "aviationweather"
+        tried.append("aviationweather")
+    if not metar and vatsim_val.get("metar"):
+        metar, source = vatsim_val["metar"], "vatsim"
+        tried.append("vatsim")
+    if awc_val.get("taf"):
+        taf = awc_val["taf"]
+
+    for name, fetcher in OPTIONAL_SOURCES:
+        if metar and taf:
+            break
+        try:
+            out = await fetcher(code)
+        except Exception:  # noqa: BLE001
+            continue
+        if (out or {}).get("metar") or (out or {}).get("taf"):
+            tried.append(name)
+        if not metar and (out or {}).get("metar"):
+            metar, source = out["metar"], name
+        if not taf and (out or {}).get("taf"):
+            taf = out["taf"]
+
+    station: Optional[dict[str, Any]]
+    try:
+        station = await get_station(code)
+    except Exception:  # noqa: BLE001
+        station = None
+
+    if metar:
+        hint = None
+    elif station:
+        station_name = ZH_NAMES.get(code) or station.get("name")
+        hint = (
+            f"{station_name}（{station.get('city') or station.get('country')}）"
+            "暂无公开 METAR：该机场未在国际 METAR 数据流中发布，可稍后重试或查看航图"
+        )
+    else:
+        hint = f"机场代码 {code} 不在机场库中，请检查 ICAO 是否正确"
+
+    data: dict[str, Any] = {
+        "metar": metar or None,
+        "taf": taf or None,
+        "parsed": parse_metar(metar) if metar else None,
+        "tafParsed": parse_taf(taf) if taf else None,
+        "station": ZH_NAMES.get(code) or (station.get("name") if station else None) or code,
+        "stationExists": bool(station),
+        "metarAvailable": bool(metar),
+        "tafAvailable": bool(taf),
+        "source": source or None,
+        "sourcesTried": tried,
+        "hint": hint,
+    }
+    payload = {"success": True, "data": data}
+    cache_put(code, payload, TTL_HIT_MS if metar else TTL_MISS_MS)
+    return payload
 
 
 __all__ = [
@@ -429,6 +526,7 @@ __all__ = [
     "from_metar_taf",
     "OPTIONAL_SOURCES",
     "cache_get",
+    "fetch_payload",
     "cache_put",
     "clear_cache",
     "TTL_HIT_MS",

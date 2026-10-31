@@ -74,12 +74,28 @@ async def main():
 asyncio.run(main())
 PY
 
-echo "=== [5] 启动 + 健康检查 ==="
-pm2 start .venv/bin/python --name cwfly-api-py -- -m uvicorn app.asgi:application --host 127.0.0.1 --port 3001 --log-level info
-sleep 10
+echo "=== [5] 启动（API 2 worker + 后台任务独立进程）==="
+pm2 delete cwfly-api-py >/dev/null 2>&1 || true
+pm2 delete cwfly-worker-py >/dev/null 2>&1 || true
+REDIS_URL=${SOCKETIO_REDIS_URL:-redis://127.0.0.1:6379/0}
+BACKGROUND_JOBS=0 SOCKETIO_REDIS_URL="$REDIS_URL" pm2 start .venv/bin/python --name cwfly-api-py -- \
+  -m uvicorn app.asgi:application --host 127.0.0.1 --port 3001 --workers 2 --no-access-log --log-level warning
+SOCKETIO_REDIS_URL="$REDIS_URL" BACKGROUND_JOBS=1 pm2 start .venv/bin/python --name cwfly-worker-py -- -m app.worker
+sleep 12
 for p in /health /api/auth/check-admin /whazzup.json; do
   printf '  %-26s ' "$p"
   curl -s -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:3001$p"
 done
 pm2 save >/dev/null 2>&1 || true
+echo "=== [5.1] nginx gzip_static + 静态资源预压缩 ==="
+CONF=/www/server/nginx/conf/nginx.conf
+if ! grep -q "gzip_static on;" "$CONF"; then
+  cp -a "$CONF" "$CONF.bak-gzipstatic-$(date +%Y%m%d-%H%M%S)"
+  sed -i 's/^        gzip_vary on;/        gzip_vary on;\n        gzip_static on;\n        open_file_cache max=10000 inactive=60s;\n        open_file_cache_valid 120s;\n        open_file_cache_min_uses 2;/' "$CONF"
+  nginx -t && nginx -s reload && echo "  nginx 已启用 gzip_static + open_file_cache"
+else
+  echo "  gzip_static 已启用"
+fi
+find /opt/cwfly/frontend/dist -type f \( -name '*.js' -o -name '*.css' -o -name '*.svg' -o -name '*.json' -o -name '*.woff2' -o -name '*.woff' \) -exec gzip -9 -k -f {} \; 2>/dev/null
+echo "  预压缩文件数: $(find /opt/cwfly/frontend/dist -name '*.gz' | wc -l)"
 echo "=== 部署完成 ==="

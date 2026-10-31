@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI, Request
@@ -53,10 +54,45 @@ async def lifespan(app: FastAPI):
         await _ensure_rate_limit_table()
     except Exception as exc:  # noqa: BLE001
         log.warning("[CWFLY] 预热失败: %s", exc)
+    # 预热：DB 连接池 + FIR 边界（消除每个 worker 的首请求冷启动）
+    try:
+        from sqlalchemy import text as _text
+
+        from app.db.session import engine as _engine
+
+        async def _warm_db() -> None:
+            conns = []
+            try:
+                for _ in range(8):
+                    conn = await _engine.connect()
+                    conns.append(conn)
+                for conn in conns:
+                    await conn.execute(_text("SELECT 1"))
+            finally:
+                for conn in conns:
+                    try:
+                        await conn.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+
+        await _warm_db()
+        from app.services.controller_boundaries import load_fir_boundaries
+
+        await load_fir_boundaries()
+        log.info("[CWFLY] DB 连接池 / FIR 边界预热完成")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("[CWFLY] 预热失败: %s", exc)
+
+    # 生产多 worker 时 API 进程不跑定时任务（由 cwfly-worker-py 单独执行）；
+    # 本地开发默认仍在本进程启动，方便单进程调试。
+    _bg_jobs = os.getenv("BACKGROUND_JOBS", "1") not in ("0", "false", "False", "no")
     try:
         from app.jobs.scheduler import start_jobs
 
-        start_jobs()
+        if _bg_jobs:
+            start_jobs()
+        else:
+            log.info("[CWFLY] BACKGROUND_JOBS=0：定时任务由 worker 进程负责")
     except Exception as exc:  # noqa: BLE001
         log.warning("[CWFLY] 定时任务未启用: %s", exc)
     log.info("[CWFLY] FastAPI 后端已启动（PORT=%s, env=%s）", settings.PORT, settings.NODE_ENV)

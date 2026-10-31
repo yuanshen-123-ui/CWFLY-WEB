@@ -6,7 +6,9 @@
 
 | 组件 | 位置 | 说明 |
 |---|---|---|
-| Python API | `/opt/cwfly/backend-py`，PM2 名称 **`cwfly-api-py`**，监听 `127.0.0.1:3001` | 入口 `app.asgi:application`（HTTP + Socket.IO） |
+| Python API | `/opt/cwfly/backend-py`，PM2 名称 **`cwfly-api-py`**，监听 `127.0.0.1:3001` | `uvicorn app.asgi:application --workers 2`（HTTP + Socket.IO，Redis manager 跨 worker 广播） |
+| 后台任务 | PM2 名称 **`cwfly-worker-py`**（`python -m app.worker`） | 定时任务/whazzup/FSD 轮询/备份 + **热门机场天气预热**，与 API 进程隔离 |
+| Redis | `127.0.0.1:6379`（CentOS `redis-5.0.3`，systemd 自启） | Socket.IO 多 worker 广播 + 天气共享缓存（`cwfly:weather:*`） |
 | Node API（已停止） | `/opt/cwfly/backend`，PM2 名称 `cwfly-api`（cluster ×2） | 回滚用：`pm2 start cwfly-api` |
 | nginx | `/www/server/panel/vhost/nginx/{api,atc,cwfly}.cwfly.conf.conf` | 已把 `proxy_pass 127.0.0.1:3000` 全部改为 `:3001`（共 8 处） |
 | 前端静态 | `root /opt/cwfly/frontend/dist`（nginx 直出，不经后端） | 不受后端切换影响 |
@@ -95,3 +97,26 @@ pm2 reload cwfly-api-py 2>/dev/null || pm2 restart cwfly-api-py 2>/dev/null
 
 优化记录：访问日志改为**内存缓冲 + 每秒批量落盘**（原每请求 flush 在该机器上约 7ms 磁盘开销），
 并把 UA/安全头/续签头/IP 聚合/访问日志合并为单个 `GatewayMiddleware`。
+
+## 十、性能优化记录（2026-10-31 第二轮）
+
+### 架构
+- **API 2 worker**：`uvicorn --workers 2`（4 vCPU），Socket.IO 用 `AsyncRedisManager` 保证跨 worker 房间广播一致；
+- **后台任务独立进程**（`cwfly-worker-py`）：whazzup 解析、FSD 轮询、备份等不再阻塞 API 事件循环，且只跑一份；
+- **nginx**：upstream `cwfly_api_pool` 连接池（keepalive 64）+ `gzip_proxied any` + `gzip_static on` + `open_file_cache`，865 个静态资源已预压缩；
+- **DB**：SQLAlchemy 连接池 15+15；API 启动时预热 8 条连接（消除首请求建连）；
+- **天气共享缓存**：`weather_cache`（Redis + 内存兜底），worker 每 40s 预热 10 个热门机场（TTL 180s），API 首请求直接命中；
+- **FIR 边界**：API 启动时预加载（`load_fir_boundaries`），首请求 255ms → 17ms。
+
+### 实测（白名单国内 IP，直连后端）
+| 指标 | 优化前 | 优化后 |
+|---|---|---|
+| 首屏 12 个并发 API 第 1 轮 | **1769.8 ms** | **105.3 ms** |
+| 首屏 12 个并发第 2/3 轮 | 52.4 / 45.3 ms | 85.9 / 91.4 ms |
+| `/api/weather` 冷启动首个机场 | **1376 ms** | ZSPD 10.3ms / ZGGG 8.2ms（ZBAA 首个请求 82.7ms 含建连） |
+| `/api/flightplans/fsd/boundaries` 首请求 | 255 ms | 17.6 ms |
+| `/health` 热态 | 8.5 ms | 9.4 ms |
+| 首屏静态资源传输（gzip_static） | 动态 gzip | index.js 85.9KB + css 4.7KB = **88KB** |
+
+> 说明：Site 端到端体验还受用户到服务器的网络 RTT 影响；本次改动把「服务端冷启动/重复请求」的等待基本消除，
+> 首屏数据请求由 1.7s 降到 0.1s 量级。若还慢，下一层优化点是前端资源体积（three.js/Charts 懒加载）与 CDN。

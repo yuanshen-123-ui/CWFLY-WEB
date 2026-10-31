@@ -9,8 +9,8 @@ from app.config import settings
 
 engine = create_async_engine(
     settings.async_database_url,
-    pool_size=settings.DB_CONNECTION_LIMIT,
-    max_overflow=settings.DB_CONNECTION_LIMIT,
+    pool_size=max(settings.DB_CONNECTION_LIMIT, 15),
+    max_overflow=max(settings.DB_CONNECTION_LIMIT, 15),
     pool_pre_ping=True,
     pool_recycle=1800,
     echo=False,
