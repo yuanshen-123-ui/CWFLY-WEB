@@ -43,6 +43,12 @@ async def lifespan(app: FastAPI):
     await init_admin()
     await preload_bans()
     try:
+        from app.jobs.scheduler import warmup
+
+        await warmup()   # IP/设备名单预热 + 首轮 whazzup（对应 Node ensureBansLoaded/启动首刷）
+    except Exception as exc:  # noqa: BLE001
+        log.warning("[CWFLY] 预热失败: %s", exc)
+    try:
         from app.jobs.scheduler import start_jobs
 
         start_jobs()

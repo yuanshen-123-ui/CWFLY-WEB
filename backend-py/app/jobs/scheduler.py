@@ -309,8 +309,14 @@ async def _fetch_fingerprint_rows() -> Dict[str, List[Dict[str, Any]]]:
                 )
             )
         ).all()
+    login_rows: List[Dict[str, Any]] = []
+    for row in login_logs:
+        item = dict(row._mapping)
+        # Prisma Boolean → 输出 true/false（MySQL 里是 tinyint 0/1）
+        item["success"] = bool(item.get("success"))
+        login_rows.append(item)
     return {
-        "loginlog": [dict(row._mapping) for row in login_logs],
+        "loginlog": login_rows,
         "security": [dict(row._mapping) for row in events],
         "users": [dict(row._mapping) for row in users],
     }

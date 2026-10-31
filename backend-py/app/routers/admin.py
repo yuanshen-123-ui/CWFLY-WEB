@@ -1,4 +1,4 @@
-"""/api/admin 路由（逐端点对齐 Node src/routes/admin.js，80 个端点）。
+"""/api/admin 路由（逐端点对齐 Node src/routes/admin.js，共 80 个端点）。
 
 鉴权链（与 Node 完全一致）：
     authenticate → adminLimiter(30/min) → requireAdminAccess
@@ -24,6 +24,7 @@ import os
 import re
 import secrets
 import time
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
@@ -92,9 +93,10 @@ POSTER_MAX_BYTES = 5 * 1024 * 1024
 POSTER_ALLOWED_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%"
 
-# Prisma 生成的 client 只 select 模型里声明的字段（node_modules/.prisma/client/schema.prisma），
-# 不会返回数据库里多出来的列（例如 `User`.`role`/`salt`、`FlightPlan`.`status`）。
-# 这里用同样的字段清单与字段顺序拼 SELECT，保证响应 JSON 与 Node 逐字段一致。
+# Prisma 生成的 client 只 select 模型里声明的字段
+# （node_modules/.prisma/client/schema.prisma），不会返回数据库里多出来的列
+# （例如 `User`.`role`/`salt`、`FlightPlan`.`status`）。这里用同样的字段清单与顺序拼
+# SELECT，保证响应 JSON 与 Node 逐字段、逐顺序一致。
 COLUMNS: dict[str, str] = {
     "User": (
         "`id`, `cid`, `username`, `password`, `email`, `qq`, `avatar`, `rating`, `permissions`, "
@@ -105,9 +107,7 @@ COLUMNS: dict[str, str] = {
         "`id`, `userId`, `ip`, `userAgent`, `success`, `createdAt`, `deviceFp`, `type`, `failReason`"
     ),
     "AuditLog": "`id`, `userId`, `action`, `target`, `detail`, `createdAt`",
-    "IpVisit": (
-        "`id`, `ip`, `windowStart`, `count`, `firstSeen`, `lastSeen`, `deviceFp`"
-    ),
+    "IpVisit": "`id`, `ip`, `windowStart`, `count`, `firstSeen`, `lastSeen`, `deviceFp`",
     "IpBan": "`id`, `ip`, `reason`, `bannedBy`, `bannedUser`, `active`, `expiresAt`, `createdAt`",
     "IpList": "`id`, `ip`, `type`, `reason`, `addedBy`, `active`, `createdAt`",
     "IpGroup": "`id`, `name`, `type`, `reason`, `addedBy`, `active`, `createdAt`",
@@ -157,16 +157,44 @@ def sel(table: str, tail: str = "") -> str:
 
 
 # ==================== 响应 / 工具 ====================
+# 依赖里写到注入 `Response` 上的响应头（RateLimit-*、X-Renewed-Token）在 FastAPI 里
+# 会随「endpoint 直接返回自己的 Response」而丢失，用 ContextVar 带到响应对象上。
+_RESPONSE_HEADERS: ContextVar[dict[str, str]] = ContextVar("admin_response_headers", default={})
+
+
+class _AdminResponse(JSJSONResponse):
+    """JSJSONResponse + 合并本请求已设置的其他响应头（对齐 Node res.set）。"""
+
+    def __init__(
+        self,
+        content: Any,
+        status_code: int = 200,
+        headers: Any = None,
+        media_type: Optional[str] = None,
+        background: Any = None,
+    ) -> None:
+        merged: dict[str, str] = dict(_RESPONSE_HEADERS.get())
+        if headers:
+            merged.update(dict(headers))
+        super().__init__(
+            content,
+            status_code=status_code,
+            headers=merged or None,
+            media_type=media_type,
+            background=background,
+        )
+
+
 def _ok(data: Any = None, **extra: Any) -> JSJSONResponse:
     body: dict[str, Any] = {"success": True, "data": data}
     body.update(extra)
-    return JSJSONResponse(body)
+    return _AdminResponse(body)
 
 
 def _fail(status_code: int, message: str, **extra: Any) -> JSJSONResponse:
     body: dict[str, Any] = {"success": False, "message": message}
     body.update(extra)
-    return JSJSONResponse(body, status_code=status_code)
+    return _AdminResponse(body, status_code=status_code)
 
 
 def handle(message: str = "操作失败"):  # noqa: ANN201 - 装饰器工厂
@@ -200,6 +228,8 @@ async def admin_guard(
 ) -> CurrentUser:
     """等价 Node：authenticate → adminLimiter → requireAdminAccess。"""
     await _admin_rate(request, response)
+    # 捕获依赖阶段已设置的头（滑动续签 X-Renewed-Token + RateLimit-*），随响应返回
+    _RESPONSE_HEADERS.set({key: value for key, value in response.headers.items()})
     if (user.rating or 0) >= 8 and has_any_permission(
         {"rating": user.rating, "permissions": user.permissions}
     ):
@@ -285,6 +315,15 @@ def _paging(page: Any, page_size: Any) -> tuple[int, int]:
     return skip, take
 
 
+def _maybe_int(value: Any) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return None
+
+
 def _rating_name(value: Any) -> str:
     key = _maybe_int(value)
     if key is not None and key in RATING_NAME:
@@ -297,15 +336,6 @@ def _fsd_name(value: Any) -> str:
     if key is not None and key in FSD_NAME:
         return FSD_NAME[key]
     return "" if value is None else str(value)
-
-
-def _maybe_int(value: Any) -> Optional[int]:
-    if value is None:
-        return None
-    try:
-        return int(float(str(value).strip()))
-    except (TypeError, ValueError):
-        return None
 
 
 def _perms_to_string(value: Any) -> str:
@@ -376,7 +406,8 @@ async def _notify_all_users(db: AsyncSession, title: str, content: str) -> None:
         if payload:
             await db.execute(
                 text(
-                    "INSERT INTO `Notification` (`userId`, `type`, `title`, `content`, `link`, `read`) "
+                    "INSERT INTO `Notification` "
+                    "(`userId`, `type`, `title`, `content`, `link`, `read`) "
                     "VALUES (:uid, 'announcement', :title, :content, :link, 0)"
                 ),
                 payload,
@@ -498,9 +529,7 @@ async def update_user(
         set_clause = ", ".join(f"`{column}` = :{column}" for column in updates)
         params = dict(updates)
         params["cid"] = cid
-        await db.execute(
-            text(f"UPDATE `User` SET {set_clause} WHERE `cid` = :cid"), params
-        )
+        await db.execute(text(f"UPDATE `User` SET {set_clause} WHERE `cid` = :cid"), params)
         await db.commit()
 
     user_row = (
@@ -514,7 +543,9 @@ async def update_user(
     if old_email:
         changes: list[str] = []
         if rating is not None and old_user.get("rating") != rating:
-            changes.append("角色：" + _rating_name(old_user.get("rating")) + " -> " + _rating_name(rating))
+            changes.append(
+                "角色：" + _rating_name(old_user.get("rating")) + " -> " + _rating_name(rating)
+            )
         if fsd_level is not None and old_user.get("fsdLevel") != fsd_level:
             changes.append(
                 "管制等级：" + _fsd_name(old_user.get("fsdLevel")) + " -> " + _fsd_name(fsd_level)
@@ -547,11 +578,7 @@ async def update_user(
                 mailer.fire_and_forget(
                     mailer.send_security_alert(
                         old_email,
-                        {
-                            "action": "密码重置",
-                            "detail": detail,
-                            "time": _zh(_utcnow()),
-                        },
+                        {"action": "密码重置", "detail": detail, "time": _zh(_utcnow())},
                     )
                 )
             except Exception:  # noqa: BLE001
@@ -609,10 +636,13 @@ async def delete_user(
     await _write_audit(
         db,
         "delete_user",
-        "User " + cid + " deleted" + (f"（同步封禁设备指纹 {len(banned_fps)} 个）" if ban_device else ""),
+        "User "
+        + cid
+        + " deleted"
+        + (f"（同步封禁设备指纹 {len(banned_fps)} 个）" if ban_device else ""),
         current.cid,
     )
-    return JSJSONResponse({"success": True, "message": "deleted", "bannedFps": banned_fps})
+    return _AdminResponse({"success": True, "message": "deleted", "bannedFps": banned_fps})
 
 
 @router.post("/users/{cid}/reset-password")
@@ -638,9 +668,14 @@ async def reset_user_password(
     random_password = generate_random_password()
     await db.execute(
         text(
-            "UPDATE `User` SET `password` = :password, `fsdPasswordHash` = :hash WHERE `cid` = :cid"
+            "UPDATE `User` SET `password` = :password, `fsdPasswordHash` = :hash "
+            "WHERE `cid` = :cid"
         ),
-        {"password": hash_password(random_password), "hash": sha256_hex(random_password), "cid": cid},
+        {
+            "password": hash_password(random_password),
+            "hash": sha256_hex(random_password),
+            "cid": cid,
+        },
     )
     await db.commit()
 
@@ -670,7 +705,7 @@ async def reset_user_password(
         "User " + cid + " 密码被管理员重置（随机密码）" + (f"（原因：{reason}）" if reason else ""),
         current.cid,
     )
-    return JSJSONResponse(
+    return _AdminResponse(
         {"success": True, "message": "密码已重置并发送给用户", "password": random_password}
     )
 
@@ -684,9 +719,7 @@ async def list_device_bans(
 ) -> JSJSONResponse:
     if (current.rating or 0) < 12:
         return _fail(403, "仅超级管理员可查看设备封禁")
-    rows = (
-        await db.execute(text(sel("DeviceBan", "ORDER BY `id` DESC")))
-    ).all()
+    rows = (await db.execute(text(sel("DeviceBan", "ORDER BY `id` DESC")))).all()
     data = [
         {
             "id": item["id"],
@@ -716,7 +749,7 @@ async def create_device_ban(
     await ban_device_fp(str(fp), str(body.get("reason") or ""), current.cid or "system")
     await refresh_device_bans()
     await _write_audit(db, "ban_device", "封禁设备指纹 " + str(fp)[:40], current.cid)
-    return JSJSONResponse({"success": True, "message": "已封禁该设备"})
+    return _AdminResponse({"success": True, "message": "已封禁该设备"})
 
 
 @router.delete("/device-bans/{ban_id}")
@@ -737,7 +770,7 @@ async def delete_device_ban(
     await db.commit()
     await refresh_device_bans()
     await _write_audit(db, "unban_device", f"解除设备指纹封禁 #{ban_id}", current.cid)
-    return JSJSONResponse({"success": True, "message": "已解除"})
+    return _AdminResponse({"success": True, "message": "已解除"})
 
 
 # ==================== 用户删除审批 ====================
@@ -759,7 +792,6 @@ async def create_deletion_request(
         ips = ",".join(str(item) for item in raw_ips)
     else:
         ips = str(raw_ips or "")
-    now = _utcnow()
     result = await db.execute(
         text(
             "INSERT INTO `UserChangeApproval` "
@@ -773,14 +805,13 @@ async def create_deletion_request(
             "ips": ips,
             "reason": str(body.get("reason") or ""),
             "requested_by": current.cid or "system",
-            "created_at": now,
+            "created_at": _utcnow(),
         },
     )
     await db.commit()
     record = (
         await db.execute(
-            text(sel("UserChangeApproval", "WHERE `id` = :id")),
-            {"id": result.lastrowid},
+            text(sel("UserChangeApproval", "WHERE `id` = :id")), {"id": result.lastrowid}
         )
     ).first()
     await _write_audit(
@@ -804,7 +835,11 @@ async def list_deletion_requests(
         await db.execute(text(sel("UserChangeApproval", "ORDER BY `id` DESC")))
     ).all()
     items = _rows(rows)
-    cids = list(dict.fromkeys([str(item.get("requestedBy") or "") for item in items if item.get("requestedBy")]))
+    cids = list(
+        dict.fromkeys(
+            [str(item.get("requestedBy") or "") for item in items if item.get("requestedBy")]
+        )
+    )
     name_map: dict[str, str] = {}
     if cids:
         placeholders = ", ".join(f":cid{index}" for index in range(len(cids)))
@@ -846,9 +881,7 @@ async def approve_deletion_request(
     if (current.rating or 0) < 12:
         return _fail(403, "仅超级管理员可审批")
     row = (
-        await db.execute(
-            text(sel("UserChangeApproval", "WHERE `id` = :id")), {"id": req_id}
-        )
+        await db.execute(text(sel("UserChangeApproval", "WHERE `id` = :id")), {"id": req_id})
     ).first()
     if row is None:
         return _fail(404, "审批不存在或已处理")
@@ -883,9 +916,7 @@ async def approve_deletion_request(
             ).first()
             if existing is not None:
                 await db.execute(
-                    text(
-                        "UPDATE `IpBan` SET `active` = 1, `bannedBy` = :by WHERE `id` = :id"
-                    ),
+                    text("UPDATE `IpBan` SET `active` = 1, `bannedBy` = :by WHERE `id` = :id"),
                     {"by": operator, "id": existing._mapping["id"]},
                 )
             else:
@@ -918,7 +949,7 @@ async def approve_deletion_request(
         "批准删除用户 " + target_cid + "（" + str(record.get("action")) + "）",
         current.cid,
     )
-    return JSJSONResponse({"success": True, "message": "已批准并执行"})
+    return _AdminResponse({"success": True, "message": "已批准并执行"})
 
 
 @router.post("/user-deletion-requests/{req_id}/reject")
@@ -931,9 +962,7 @@ async def reject_deletion_request(
     if (current.rating or 0) < 12:
         return _fail(403, "仅超级管理员可审批")
     row = (
-        await db.execute(
-            text(sel("UserChangeApproval", "WHERE `id` = :id")), {"id": req_id}
-        )
+        await db.execute(text(sel("UserChangeApproval", "WHERE `id` = :id")), {"id": req_id})
     ).first()
     if row is None:
         return _fail(404, "审批不存在或已处理")
@@ -951,7 +980,7 @@ async def reject_deletion_request(
     await _write_audit(
         db, "reject_delete_user", "拒绝删除用户 " + str(record.get("cid") or ""), current.cid
     )
-    return JSJSONResponse({"success": True, "message": "已拒绝"})
+    return _AdminResponse({"success": True, "message": "已拒绝"})
 
 
 # ==================== 公告 ====================
@@ -963,9 +992,7 @@ async def list_announcements(
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     rows = (
-        await db.execute(
-            text(sel("Announcement", "ORDER BY `pinned` DESC, `id` DESC"))
-        )
+        await db.execute(text(sel("Announcement", "ORDER BY `pinned` DESC, `id` DESC")))
     ).all()
     return _ok(_rows(rows, ("pinned",)))
 
@@ -1002,9 +1029,7 @@ async def create_announcement(
     await _write_audit(db, "create_announcement", "Announcement created: " + str(title), current.cid)
     await _notify_all_users(db, str(title), str(content))
     row = (
-        await db.execute(
-            text(sel("Announcement", "WHERE `id` = :id")), {"id": result.lastrowid}
-        )
+        await db.execute(text(sel("Announcement", "WHERE `id` = :id")), {"id": result.lastrowid})
     ).first()
     return _ok(_row(row, ("pinned",)) if row is not None else None)
 
@@ -1025,7 +1050,7 @@ async def delete_staff_application(
         return _fail(404, "申请不存在")
     await db.execute(text("DELETE FROM `Application` WHERE `id` = :id"), {"id": app_id})
     await db.commit()
-    return JSJSONResponse({"success": True, "message": "已删除"})
+    return _AdminResponse({"success": True, "message": "已删除"})
 
 
 @router.put("/announcements/{ann_id}")
@@ -1080,7 +1105,7 @@ async def delete_announcement(
     await db.execute(text("DELETE FROM `Announcement` WHERE `id` = :id"), {"id": ann_id})
     await db.commit()
     await _write_audit(db, "delete_announcement", f"Announcement #{ann_id} deleted", current.cid)
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 @router.get("/permissions")
@@ -1108,9 +1133,7 @@ async def logs_login(
             text(sel("LoginLog", f"ORDER BY `createdAt` DESC LIMIT {take} OFFSET {skip}"))
         )
     ).all()
-    total = (
-        await db.execute(text("SELECT COUNT(*) AS c FROM `LoginLog`"))
-    ).scalar_one()
+    total = (await db.execute(text("SELECT COUNT(*) AS c FROM `LoginLog`"))).scalar_one()
     items = _rows(rows, ("success",))
     cids = [str(item.get("userId") or "") for item in items if item.get("userId")]
     user_map: dict[str, str] = {}
@@ -1133,6 +1156,7 @@ async def logs_login(
                 "cid": uid or "unknown",
                 "username": user_map.get(uid) if uid in user_map else (uid or "unknown"),
                 "ip": item.get("ip"),
+                # Node 的 Prisma LoginLog 模型没有 loginLocation 字段 → 恒为 ''
                 "loginLocation": item.get("loginLocation") or "",
                 "deviceFp": item.get("deviceFp") or "",
                 "type": item.get("type") or "login",
@@ -1190,7 +1214,10 @@ async def logs_network(
     rows = (
         await db.execute(
             text(
-                sel("IpVisit", f"ORDER BY `windowStart` DESC, `count` DESC LIMIT {take} OFFSET {skip}")
+                sel(
+                    "IpVisit",
+                    f"ORDER BY `windowStart` DESC, `count` DESC LIMIT {take} OFFSET {skip}",
+                )
             )
         )
     ).all()
@@ -1275,7 +1302,9 @@ async def logs_network(
                     bucket.append(uid)
 
     for item in formatted:
-        merged = list(dict.fromkeys(login_map.get(item["ip"], []) + register_map.get(item["ip"], [])))
+        merged = list(
+            dict.fromkeys(login_map.get(item["ip"], []) + register_map.get(item["ip"], []))
+        )
         item["cid"] = ", ".join(merged)
     return _ok({"items": formatted, "total": int(total)})
 
@@ -1337,9 +1366,7 @@ async def create_staff(
         },
     )
     await db.commit()
-    await _write_audit(
-        db, "add_staff", f"Staff {name}({new_cid}) added", current.cid
-    )
+    await _write_audit(db, "add_staff", f"Staff {name}({new_cid}) added", current.cid)
     row = (
         await db.execute(text(sel("Staff", "WHERE `cid` = :cid")), {"cid": new_cid})
     ).first()
@@ -1398,7 +1425,7 @@ async def delete_staff(
     await db.execute(text("DELETE FROM `Staff` WHERE `cid` = :cid"), {"cid": cid})
     await db.commit()
     await _write_audit(db, "delete_staff", f"Staff CID {cid} deleted", current.cid)
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 @router.get("/logs/audit")
@@ -1444,7 +1471,9 @@ async def list_ip_bans(
     bans = _rows(rows, ("active",))
     now = _utcnow()
 
-    cids = list(dict.fromkeys([str(item.get("bannedBy") or "") for item in bans if item.get("bannedBy")]))
+    cids = list(
+        dict.fromkeys([str(item.get("bannedBy") or "") for item in bans if item.get("bannedBy")])
+    )
     name_map: dict[str, str] = {}
     if cids:
         placeholders = ", ".join(f":cid{index}" for index in range(len(cids)))
@@ -1532,7 +1561,8 @@ async def create_ip_ban(
         result = await db.execute(
             text(
                 "INSERT INTO `IpBan` (`ip`, `reason`, `bannedBy`, `bannedUser`, `active`, "
-                "`expiresAt`, `createdAt`) VALUES (:ip, :reason, :by, :banned_user, 1, :expires, :created_at)"
+                "`expiresAt`, `createdAt`) "
+                "VALUES (:ip, :reason, :by, :banned_user, 1, :expires, :created_at)"
             ),
             {
                 "ip": normalized,
@@ -1618,9 +1648,13 @@ async def update_ip_ban(
 
     if active_given:
         if record.get("active"):
-            await _write_audit(db, "unban_ip", "IP " + str(record.get("ip")) + " 已解封", current.cid)
+            await _write_audit(
+                db, "unban_ip", "IP " + str(record.get("ip")) + " 已解封", current.cid
+            )
         else:
-            await _write_audit(db, "ban_ip", "IP " + str(record.get("ip")) + " 已封禁", current.cid)
+            await _write_audit(
+                db, "ban_ip", "IP " + str(record.get("ip")) + " 已封禁", current.cid
+            )
     else:
         reason_note = f"，原因={body.get('reason')}" if "reason" in body else ""
         await _write_audit(
@@ -1647,10 +1681,13 @@ async def delete_ip_ban(
     await db.execute(text("DELETE FROM `IpBan` WHERE `id` = :id"), {"id": ban_id})
     await db.commit()
     await _write_audit(
-        db, "unban_ip", "IP " + str(record.get("ip") or f"#{ban_id}") + " 已从封禁列表删除", current.cid
+        db,
+        "unban_ip",
+        "IP " + str(record.get("ip") or f"#{ban_id}") + " 已从封禁列表删除",
+        current.cid,
     )
     await refresh_bans()
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 # ==================== 网络管理（IP 白/黑名单） ====================
@@ -1663,7 +1700,9 @@ async def list_ip_list(
 ) -> JSJSONResponse:
     rows = (await db.execute(text(sel("IpList", "ORDER BY `id` DESC")))).all()
     items = _rows(rows, ("active",))
-    cids = list(dict.fromkeys([str(item.get("addedBy") or "") for item in items if item.get("addedBy")]))
+    cids = list(
+        dict.fromkeys([str(item.get("addedBy") or "") for item in items if item.get("addedBy")])
+    )
     name_map: dict[str, str] = {}
     if cids:
         placeholders = ", ".join(f":cid{index}" for index in range(len(cids)))
@@ -1742,7 +1781,10 @@ async def create_ip_list_entry(
     await _write_audit(
         db,
         "add_ip_list",
-        "IP " + normalized + " 加入" + ("白名单" if kind == "white" else "黑名单")
+        "IP "
+        + normalized
+        + " 加入"
+        + ("白名单" if kind == "white" else "黑名单")
         + (f"（{reason_text}）" if reason_text else ""),
         current.cid,
     )
@@ -1824,10 +1866,13 @@ async def delete_ip_list_entry(
     await db.execute(text("DELETE FROM `IpList` WHERE `id` = :id"), {"id": item_id})
     await db.commit()
     await _write_audit(
-        db, "delete_ip_list", "IP " + str(record.get("ip") or f"#{item_id}") + " 已从名单删除", current.cid
+        db,
+        "delete_ip_list",
+        "IP " + str(record.get("ip") or f"#{item_id}") + " 已从名单删除",
+        current.cid,
     )
     await refresh_ip_list()
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 @router.post("/ip-list/import")
@@ -1875,7 +1920,12 @@ async def import_ip_list(
                         "UPDATE `IpList` SET `type` = :type, `active` = 1, `addedBy` = :by, "
                         "`reason` = :reason WHERE `id` = :id"
                     ),
-                    {"type": kind, "by": operator, "reason": final_reason, "id": existing._mapping["id"]},
+                    {
+                        "type": kind,
+                        "by": operator,
+                        "reason": final_reason,
+                        "id": existing._mapping["id"],
+                    },
                 )
             else:
                 await db.execute(
@@ -1941,7 +1991,9 @@ async def list_ip_groups(
                 {"id": mapping["id"], "ip": mapping["ip"]}
             )
 
-    cids = list(dict.fromkeys([str(item.get("addedBy") or "") for item in groups if item.get("addedBy")]))
+    cids = list(
+        dict.fromkeys([str(item.get("addedBy") or "") for item in groups if item.get("addedBy")])
+    )
     name_map: dict[str, str] = {}
     if cids:
         placeholders = ", ".join(f":cid{index}" for index in range(len(cids)))
@@ -1990,7 +2042,9 @@ async def summary_ip_groups(
     for row in count_rows:
         counts[int(row._mapping["groupId"])] = int(row._mapping["c"])
 
-    cids = list(dict.fromkeys([str(item.get("addedBy") or "") for item in groups if item.get("addedBy")]))
+    cids = list(
+        dict.fromkeys([str(item.get("addedBy") or "") for item in groups if item.get("addedBy")])
+    )
     name_map: dict[str, str] = {}
     if cids:
         placeholders = ", ".join(f":cid{index}" for index in range(len(cids)))
@@ -2029,7 +2083,9 @@ async def create_ip_group(
 ) -> JSJSONResponse:
     body = await _body(request)
     kind = "white" if body.get("type") == "white" else "black"
-    name = str(body.get("name") or "").strip()[:100] or ("白名单集合" if kind == "white" else "黑名单集合")
+    name = str(body.get("name") or "").strip()[:100] or (
+        "白名单集合" if kind == "white" else "黑名单集合"
+    )
     result = await db.execute(
         text(
             "INSERT INTO `IpGroup` (`name`, `type`, `reason`, `addedBy`, `active`, `createdAt`) "
@@ -2052,9 +2108,7 @@ async def create_ip_group(
     )
     await refresh_ip_list()
     row = (
-        await db.execute(
-            text(sel("IpGroup", "WHERE `id` = :id")), {"id": result.lastrowid}
-        )
+        await db.execute(text(sel("IpGroup", "WHERE `id` = :id")), {"id": result.lastrowid})
     ).first()
     return _ok(_row(row, ("active",)) if row is not None else None)
 
@@ -2094,7 +2148,9 @@ async def update_ip_group(
         await db.execute(text(sel("IpGroup", "WHERE `id` = :id")), {"id": group_id})
     ).first()
     record = _row(row, ("active",)) if row is not None else {}
-    await _write_audit(db, "edit_ip_group", "IP 集合 " + str(record.get("name")) + " 已更新", current.cid)
+    await _write_audit(
+        db, "edit_ip_group", "IP 集合 " + str(record.get("name")) + " 已更新", current.cid
+    )
     await refresh_ip_list()
     return _ok(record)
 
@@ -2123,7 +2179,7 @@ async def delete_ip_group(
         current.cid,
     )
     await refresh_ip_list()
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 @router.post("/ip-groups/{group_id}/members")
@@ -2140,7 +2196,7 @@ async def add_ip_group_member(
     if not normalized:
         return _fail(400, "无效的 IP 地址")
     group = (
-        await db.execute(text(sel("IpGroup", "WHERE `id` = :id")), {"id": group_id})
+        await db.execute(text("SELECT `id`, `name` FROM `IpGroup` WHERE `id` = :id"), {"id": group_id})
     ).first()
     if group is None:
         return _fail(404, "集合不存在")
@@ -2191,7 +2247,7 @@ async def delete_ip_group_member(
         current.cid,
     )
     await refresh_ip_list()
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 @router.post("/ip-groups/import")
@@ -2213,7 +2269,7 @@ async def import_ip_group(
         return _fail(400, "单次最多导入 5000 条")
     gid = _as_int(group_id)
     group = (
-        await db.execute(text(sel("IpGroup", "WHERE `id` = :id")), {"id": gid})
+        await db.execute(text("SELECT `id`, `name` FROM `IpGroup` WHERE `id` = :id"), {"id": gid})
     ).first()
     if group is None:
         return _fail(404, "集合不存在")
@@ -2228,7 +2284,12 @@ async def import_ip_group(
     to_create: list[dict[str, Any]] = []
     now = _utcnow()
     for item in ips:
-        raw = item if isinstance(item, str) else (item.get("ip") or "" if isinstance(item, dict) else "")
+        if isinstance(item, str):
+            raw = item
+        elif isinstance(item, dict):
+            raw = item.get("ip") or ""
+        else:
+            raw = ""
         normalized = normalize_ip(str(raw or "").strip())
         if not normalized:
             continue
@@ -2249,7 +2310,9 @@ async def import_ip_group(
     await _write_audit(
         db,
         "import_ip_group",
-        "向集合 " + str(group._mapping.get("name")) + f" 导入 {len(to_create)} 条，跳过 {skipped} 条",
+        "向集合 "
+        + str(group._mapping.get("name"))
+        + f" 导入 {len(to_create)} 条，跳过 {skipped} 条",
         current.cid,
     )
     await refresh_ip_list()
@@ -2285,9 +2348,17 @@ def _apply_dynamic_status(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
         entry["_start"] = None if start == float("inf") else int(start)
         entry["__start_raw"] = start
         decorated.append(entry)
-    future = [item for item in decorated if item["__start_raw"] != float("inf") and item["__start_raw"] > now_ms]
+    future = [
+        item
+        for item in decorated
+        if item["__start_raw"] != float("inf") and item["__start_raw"] > now_ms
+    ]
     future.sort(key=lambda item: item["__start_raw"])
-    past = [item for item in decorated if item["__start_raw"] != float("inf") and item["__start_raw"] <= now_ms]
+    past = [
+        item
+        for item in decorated
+        if item["__start_raw"] != float("inf") and item["__start_raw"] <= now_ms
+    ]
     for index, item in enumerate(future):
         item["status"] = "报名中" if index == 0 else "筹备中"
     for item in past:
@@ -2405,7 +2476,13 @@ def _is_image_buffer(head: bytes) -> bool:
         return False
     if len(head) >= 3 and head[0] == 0xFF and head[1] == 0xD8 and head[2] == 0xFF:
         return True
-    if len(head) >= 4 and head[0] == 0x89 and head[1] == 0x50 and head[2] == 0x4E and head[3] == 0x47:
+    if (
+        len(head) >= 4
+        and head[0] == 0x89
+        and head[1] == 0x50
+        and head[2] == 0x4E
+        and head[3] == 0x47
+    ):
         return True
     if head[:3] == b"GIF":
         return True
@@ -2472,12 +2549,16 @@ async def list_event_registrations(
         "WHERE `eventId` = :event_id AND `type` = :type "
         "AND `status` <> 'cancelled' ORDER BY `createdAt` ASC",
     )
-    pilots = _rows((await db.execute(text(base_sql), {"event_id": event_id, "type": "pilot"})).all())
+    pilots = _rows(
+        (await db.execute(text(base_sql), {"event_id": event_id, "type": "pilot"})).all()
+    )
     controllers = _rows(
         (await db.execute(text(base_sql), {"event_id": event_id, "type": "controller"})).all()
     )
     all_ids = list(
-        dict.fromkeys([str(item.get("userId") or "") for item in pilots + controllers if item.get("userId")])
+        dict.fromkeys(
+            [str(item.get("userId") or "") for item in pilots + controllers if item.get("userId")]
+        )
     )
     user_map: dict[str, dict[str, Any]] = {}
     if all_ids:
@@ -2504,7 +2585,9 @@ async def list_event_registrations(
         await db.execute(text(sel("Event", "WHERE `id` = :id")), {"id": event_id})
     ).first()
     data: dict[str, Any] = _row(event_row) if event_row is not None else {}
-    data["pilots"] = [{**item, "user": user_map.get(str(item.get("userId") or ""))} for item in pilots]
+    data["pilots"] = [
+        {**item, "user": user_map.get(str(item.get("userId") or ""))} for item in pilots
+    ]
     data["controllers"] = [
         {**item, "user": user_map.get(str(item.get("userId") or ""))} for item in controllers
     ]
@@ -2534,7 +2617,7 @@ async def cancel_event_registration(
         {"id": reg_id},
     )
     await db.commit()
-    return JSJSONResponse({"success": True, "message": "已取消报名"})
+    return _AdminResponse({"success": True, "message": "已取消报名"})
 
 
 @router.delete("/events/{event_id}")
@@ -2552,7 +2635,7 @@ async def delete_event(
         return _fail(404, "not found")
     await db.execute(text("DELETE FROM `Event` WHERE `id` = :id"), {"id": event_id})
     await db.commit()
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 # ==================== 机场地面数据提交（超管 + WEB_SECRET 双校验） ====================
@@ -2595,7 +2678,7 @@ async def submit_airport_data(
     await _write_audit(
         db, "edit_map", f"User {current.cid or 'unknown'} update MAP-{code}", current.cid
     )
-    return JSJSONResponse(
+    return _AdminResponse(
         {"success": True, "message": f"{code} 机场地面数据已提交，所有用户已生效"}
     )
 
@@ -2618,9 +2701,7 @@ async def list_staff_applications(
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     rows = (
-        await db.execute(
-            text(sel("Application", "WHERE `type` = 'staff' ORDER BY `id` DESC"))
-        )
+        await db.execute(text(sel("Application", "WHERE `type` = 'staff' ORDER BY `id` DESC")))
     ).all()
     return _ok(_rows(rows))
 
@@ -2684,7 +2765,8 @@ async def _review_application(
                 position = "Controller" if controller else "Staff"
                 await db.execute(
                     text(
-                        "INSERT INTO `Staff` (`cid`, `name`, `department`, `position`, `rating`, `active`) "
+                        "INSERT INTO `Staff` "
+                        "(`cid`, `name`, `department`, `position`, `rating`, `active`) "
                         "VALUES (:cid, :name, :department, :position, '', 1)"
                     ),
                     {
@@ -2714,7 +2796,8 @@ async def _review_application(
         try:
             user_row = (
                 await db.execute(
-                    text(sel("User", "WHERE `cid` = :cid")), {"cid": app.get("userId")}
+                    text("SELECT `email` FROM `User` WHERE `cid` = :cid"),
+                    {"cid": app.get("userId")},
                 )
             ).first()
             email = (user_row._mapping.get("email") if user_row is not None else "") or ""
@@ -2808,7 +2891,7 @@ async def delete_controller_application(
         return _fail(404, "申请不存在")
     await db.execute(text("DELETE FROM `Application` WHERE `id` = :id"), {"id": app_id})
     await db.commit()
-    return JSJSONResponse({"success": True, "message": "已删除"})
+    return _AdminResponse({"success": True, "message": "已删除"})
 
 
 # ==================== 其他列表类接口 ====================
@@ -2851,16 +2934,11 @@ async def admin_flightplans(
     ).scalar_one()
     rows = (
         await db.execute(
-            text(
-                sel(
-                    "FlightPlan",
-                    f"{where} ORDER BY `id` DESC LIMIT {take} OFFSET {skip}",
-                )
-            ),
+            text(sel("FlightPlan", f"{where} ORDER BY `id` DESC LIMIT {take} OFFSET {skip}")),
             params,
         )
     ).all()
-    return _ok({"items": _rows(rows, ("syncFsd", "locked")), "total": int(total)})
+    return _ok({"items": _rows(rows, ("syncFsd",)), "total": int(total)})
 
 
 @router.delete("/flightplans/{plan_id}")
@@ -2878,7 +2956,7 @@ async def admin_delete_flightplan(
         return _fail(404, "not found")
     await db.execute(text("DELETE FROM `FlightPlan` WHERE `id` = :id"), {"id": plan_id})
     await db.commit()
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 @router.get("/tickets")
@@ -2942,7 +3020,8 @@ async def admin_update_ticket(
         try:
             user_row = (
                 await db.execute(
-                    text(sel("User", "WHERE `cid` = :cid")), {"cid": ticket.get("userId")}
+                    text("SELECT `email` FROM `User` WHERE `cid` = :cid"),
+                    {"cid": ticket.get("userId")},
                 )
             ).first()
             email = (user_row._mapping.get("email") if user_row is not None else "") or ""
@@ -2958,7 +3037,9 @@ async def admin_update_ticket(
                             + "<br>回复内容："
                             + str(reply)[:500],
                             "action": "查看工单",
-                            "actionUrl": (os.environ.get("FRONTEND_URL") or "http://localhost:5173")
+                            "actionUrl": (
+                                os.environ.get("FRONTEND_URL") or "http://localhost:5173"
+                            )
                             + "/tickets",
                         },
                     )
@@ -2983,7 +3064,7 @@ async def admin_delete_ticket(
         return _fail(404, "not found")
     await db.execute(text("DELETE FROM `Ticket` WHERE `id` = :id"), {"id": ticket_id})
     await db.commit()
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 @router.get("/controllers")
@@ -2994,9 +3075,7 @@ async def admin_controllers(
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     rows = (
-        await db.execute(
-            text(sel("Staff", "WHERE `department` LIKE '%Control%' ORDER BY `cid` ASC"))
-        )
+        await db.execute(text(sel("Staff", "WHERE `department` LIKE '%Control%' ORDER BY `cid` ASC")))
     ).all()
     return _ok(_rows(rows, ("active", "online")))
 
@@ -3082,7 +3161,10 @@ async def admin_update_online_staff(
     ).first()
     if exists is None:
         return _fail(404, "not found")
-    await db.execute(text("UPDATE `Staff` SET `active` = :active WHERE `cid` = :cid"), {"active": active, "cid": cid})
+    await db.execute(
+        text("UPDATE `Staff` SET `active` = :active WHERE `cid` = :cid"),
+        {"active": active, "cid": cid},
+    )
     await db.commit()
     row = (
         await db.execute(text(sel("Staff", "WHERE `cid` = :cid")), {"cid": cid})
@@ -3150,13 +3232,15 @@ async def admin_delete_notification(
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
     exists = (
-        await db.execute(text("SELECT `id` FROM `Notification` WHERE `id` = :id"), {"id": notif_id})
+        await db.execute(
+            text("SELECT `id` FROM `Notification` WHERE `id` = :id"), {"id": notif_id}
+        )
     ).first()
     if exists is None:
         return _fail(404, "not found")
     await db.execute(text("DELETE FROM `Notification` WHERE `id` = :id"), {"id": notif_id})
     await db.commit()
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 @router.get("/training/courses")
@@ -3166,9 +3250,7 @@ async def admin_training_courses(
     _perm: CurrentUser = Depends(require_permission(PERM_USER)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    rows = (
-        await db.execute(text(sel("TrainingCourse", "ORDER BY `id` DESC")))
-    ).all()
+    rows = (await db.execute(text(sel("TrainingCourse", "ORDER BY `id` DESC")))).all()
     return _ok(_rows(rows))
 
 
@@ -3227,7 +3309,7 @@ async def admin_delete_training_course(
         return _fail(404, "not found")
     await db.execute(text("DELETE FROM `TrainingCourse` WHERE `id` = :id"), {"id": course_id})
     await db.commit()
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 @router.get("/training/records")
@@ -3237,9 +3319,7 @@ async def admin_training_records(
     _perm: CurrentUser = Depends(require_permission(PERM_USER)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    rows = (
-        await db.execute(text(sel("TrainingRecord", "ORDER BY `id` DESC")))
-    ).all()
+    rows = (await db.execute(text(sel("TrainingRecord", "ORDER BY `id` DESC")))).all()
     return _ok(_rows(rows, ("passed", "completed")))
 
 
@@ -3301,7 +3381,7 @@ async def admin_delete_achievement(
         return _fail(404, "not found")
     await db.execute(text("DELETE FROM `Achievement` WHERE `id` = :id"), {"id": ach_id})
     await db.commit()
-    return JSJSONResponse({"success": True, "message": "deleted"})
+    return _AdminResponse({"success": True, "message": "deleted"})
 
 
 @router.get("/config")
@@ -3354,7 +3434,9 @@ async def admin_kick_fsd(
         return _fail(400, "missing cid")
     reason = body.get("reason")
     user_row = (
-        await db.execute(text(sel("User", "WHERE `cid` = :cid")), {"cid": cid})
+        await db.execute(
+            text("SELECT `email` FROM `User` WHERE `cid` = :cid"), {"cid": cid}
+        )
     ).first()
     email = (user_row._mapping.get("email") if user_row is not None else "") or ""
     if email:
@@ -3376,7 +3458,7 @@ async def admin_kick_fsd(
     await _write_audit(
         db, "kick_fsd", "User " + str(cid) + " kicked from FSD: " + str(reason or ""), current.cid
     )
-    return JSJSONResponse({"success": True, "message": "kick notification sent"})
+    return _AdminResponse({"success": True, "message": "kick notification sent"})
 
 
-__all__ = ["router", "generate_random_password", "admin_guard"]
+__all__ = ["router", "generate_random_password", "admin_guard", "sel", "COLUMNS"]
