@@ -8,10 +8,7 @@
     <div class="card p-lg">
       <div class="mb-md">
         <label class="text-sm font-bold mb-sm" style="display:block;">选择版块</label>
-        <select v-model="boardId" class="input">
-          <option value="">-- 请选择 --</option>
-          <option v-for="b in boards" :key="b.id" :value="b.id">{{ b.name }}</option>
-        </select>
+        <SelectMenu v-model="boardId" :options="boards.map((b) => ({ value: b.id, label: `${b.name}` }))" placeholder="-- 请选择 --" />
       </div>
       <div class="mb-md">
         <label class="text-sm font-bold mb-sm" style="display:block;">标题</label>

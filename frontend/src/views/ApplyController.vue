@@ -17,13 +17,7 @@
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">申请部门</label>
-          <select v-model="form.department" class="input" required>
-            <option value="">请选择</option>
-            <option value="区调管制">区调管制</option>
-            <option value="进近管制">进近管制</option>
-            <option value="塔台管制">塔台管制</option>
-            <option value="地面管制">地面管制</option>
-          </select>
+          <SelectMenu v-model="form.department" :options="[{ value: '区调管制', label: '区调管制' }, { value: '进近管制', label: '进近管制' }, { value: '塔台管制', label: '塔台管制' }, { value: '地面管制', label: '地面管制' }]" />
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">申请理由</label>

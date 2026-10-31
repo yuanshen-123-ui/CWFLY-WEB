@@ -10,10 +10,7 @@
       <div class="flex gap-sm items-end flex-wrap">
         <div style="flex:1;min-width:200px;">
           <label class="text-sm text-muted mb-sm" style="display:block;">选择活动</label>
-          <select v-model="selectedEvent" class="input">
-            <option value="" disabled>请选择活动</option>
-            <option v-for="e in events" :key="e.id" :value="e.id">{{ e.title }}</option>
-          </select>
+          <SelectMenu v-model="selectedEvent" :options="events.map((e) => ({ value: e.id, label: `${e.title}` }))" placeholder="请选择活动" />
         </div>
         <button class="btn btn-primary" @click="doCheckin" :disabled="!selectedEvent">签到</button>
       </div>

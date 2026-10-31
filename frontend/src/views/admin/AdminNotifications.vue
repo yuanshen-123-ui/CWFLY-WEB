@@ -39,12 +39,7 @@
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">类型</label>
-          <select v-model="newNotif.type" class="input">
-            <option value="system">系统通知</option>
-            <option value="event">活动通知</option>
-            <option value="forum">论坛通知</option>
-            <option value="training">培训通知</option>
-          </select>
+          <SelectMenu v-model="newNotif.type" :options="[{ value: 'system', label: '系统通知' }, { value: 'event', label: '活动通知' }, { value: 'forum', label: '论坛通知' }, { value: 'training', label: '培训通知' }]" />
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">标题</label>

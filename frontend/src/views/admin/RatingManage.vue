@@ -33,7 +33,7 @@
               <td>
                 <div class="perm-checkboxes">
                   <label v-for="p in ALL_PERMS" :key="p.key" class="perm-item" :class="{ disabled: !canEdit(u) }">
-                    <input type="checkbox" :value="p.key" v-model="u._editPerms" :disabled="!canEdit(u)" @change="u._dirty = true" />
+                    <CheckBox :model-value="u._editPerms" @update:model-value="u._editPerms = $event" :value="p.key" :disabled="!canEdit(u)" @change="u._dirty = true" />
                     <span>{{ p.label }}</span>
                   </label>
                 </div>

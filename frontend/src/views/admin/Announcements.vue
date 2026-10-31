@@ -21,7 +21,7 @@
           <textarea v-model="form.content" class="input" rows="5" placeholder="公告内容" style="resize:vertical;"></textarea>
         </div>
         <div class="mb-md flex items-center gap-sm">
-          <input v-model="form.pinned" type="checkbox" id="pinned" />
+          <CheckBox :model-value="form.pinned" @update:model-value="form.pinned = $event" id="pinned" />
           <label for="pinned" class="text-sm">置顶公告</label>
         </div>
         <div class="flex gap-sm">

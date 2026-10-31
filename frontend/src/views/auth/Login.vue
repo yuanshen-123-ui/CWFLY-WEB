@@ -6,25 +6,35 @@
         <p class="text-muted mt-sm">登录您的账号</p>
       </div>
 
-      <form @submit.prevent="handleLogin">
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">CID</label>
-          <input v-model="form.cid" class="input" :class="{ 'input-error': err }" placeholder="4位数字 CID" maxlength="4" pattern="\d{4}" required />
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">密码</label>
-          <input v-model="form.password" class="input" :class="{ 'input-error': err }" type="password" placeholder="输入密码" required />
-        </div>
+      <form @submit.prevent="handleLogin" novalidate>
+        <FormField
+          label="CID" required for-id="login-cid"
+          :error="fb.errors.cid" :shake="fb.shaking.cid"
+          @animationend="fb.shaking.cid = false"
+        >
+          <input
+            id="login-cid" v-model="form.cid" class="input"
+            inputmode="numeric" maxlength="4" placeholder="4 位数字 CID"
+            autocomplete="username" aria-required="true"
+            :aria-invalid="!!fb.errors.cid" @input="fb.input('cid')"
+          />
+        </FormField>
 
-        <!-- 错误提示 -->
-        <div v-if="err" class="error-banner">
-          <span class="error-icon">✕</span>
-          <span>{{ err }}</span>
-        </div>
+        <FormField
+          label="密码" required for-id="login-pwd"
+          :error="fb.errors.password" :shake="fb.shaking.password"
+          @animationend="fb.shaking.password = false"
+        >
+          <input
+            id="login-pwd" v-model="form.password" class="input"
+            type="password" placeholder="输入密码" autocomplete="current-password"
+            aria-required="true" :aria-invalid="!!fb.errors.password" @input="fb.input('password')"
+          />
+        </FormField>
 
-        <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
-          {{ loading ? '登录中...' : '登录' }}
-        </button>
+        <div v-if="err" class="alert alert-err">{{ err }}</div>
+
+        <SubmitButton :status="status" label="登 录" @settle="status = 'idle'" />
 
         <!-- 新设备/IP 登录二次验证：果冻弹出邮箱验证码框 -->
         <div v-if="showVerify" class="verify-wrap">
@@ -34,7 +44,7 @@
               <b>{{ maskedEmail }}</b>
             </p>
             <div class="flex gap-sm mb-sm">
-              <input v-model="verifyCode" class="input" placeholder="输入6位邮箱验证码" maxlength="6" style="flex:1;" />
+              <input v-model="verifyCode" class="input" placeholder="输入6位邮箱验证码" maxlength="6" autocomplete="one-time-code" style="flex:1;" />
               <button type="button" class="btn btn-outline btn-sm" @click="sendLoginCode" :disabled="sendingCode || codeCooldown > 0">
                 {{ codeCooldown > 0 ? codeCooldown + 's' : sendingCode ? '发送中...' : '发送验证码' }}
               </button>
@@ -50,8 +60,11 @@
       <div class="text-center mt-md text-sm text-muted">
         还没有账号？ <router-link to="/register">立即注册</router-link>
       </div>
-
-      <p class="text-xs mt-sm text-muted" style="line-height:1.7;text-align:center;">登录即表示你已阅读并同意 <router-link to="/user-agreement">《用户协议》</router-link> 与 <router-link to="/privacy-policy">《隐私政策》</router-link></p>
+      <p class="text-xs mt-sm text-muted" style="line-height:1.7;text-align:center;">
+        登录即表示你已阅读并同意
+        <router-link to="/user-agreement">《用户协议》</router-link> 与
+        <router-link to="/privacy-policy">《隐私政策》</router-link>
+      </p>
     </div>
   </div>
 </template>
@@ -62,12 +75,16 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { authApi } from '@/api'
 import { waitForPowToken } from '@/utils/pow'
+import { useFieldFeedback } from '@/utils/fieldFeedback'
 
 const router = useRouter()
 const userStore = useUserStore()
 const form = ref({ cid: '', password: '' })
 const err = ref('')
 const loading = ref(false)
+const status = ref('idle')
+const fb = useFieldFeedback(['cid', 'password'])
+let successTimer = null
 
 // ===== 新设备/IP 登录二次验证（邮箱验证码）=====
 const showVerify = ref(false)   // 验证码框是否显示（果冻弹出）
@@ -88,24 +105,34 @@ const maskedEmail = computed(() => {
 })
 
 async function handleLogin() {
+  if (status.value !== 'idle') return
   err.value = ''
-  loading.value = true
+  fb.clearAll()
+  if (!/^\d{4}$/.test(String(form.value.cid || '').trim())) {
+    fb.fail('cid', '请输入 4 位数字 CID')
+    return
+  }
+  if (!form.value.password) {
+    fb.fail('password', '请输入密码')
+    return
+  }
+  status.value = 'loading'
   try {
     const res = await userStore.login(form.value.cid, form.value.password)
     // 新 IP 登录：后端要求邮箱验证码二次验证（不返回 token）
     if (res && res.needVerify) {
+      status.value = 'idle'
       verifyEmail.value = res.email || ''
       showVerify.value = true
       verifyErr.value = ''
-      // 自动发送一次验证码到邮箱（用户直接输入即可）
       sendLoginCode()
       return
     }
-    router.push('/dashboard')
+    status.value = 'success'
+    successTimer = setTimeout(() => router.push('/dashboard'), 650)
   } catch (e) {
+    status.value = 'error'
     err.value = e.message || '登录失败，请检查 CID 和密码'
-  } finally {
-    loading.value = false
   }
 }
 
@@ -167,6 +194,7 @@ async function confirmLoginVerify() {
 
 onUnmounted(() => {
   if (cooldownTimer) clearInterval(cooldownTimer)
+  if (successTimer) clearTimeout(successTimer)
 })
 </script>
 

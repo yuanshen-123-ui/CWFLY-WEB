@@ -10,7 +10,7 @@
 
     <div class="card p-lg mb-lg">
       <div class="flex gap-sm mb-md">
-        <input v-model="date" type="date" class="input" style="width:auto;" @change="load" />
+        <DatePicker v-model="date" style="width:auto;" @change="load" />
       </div>
       <div class="table-wrap">
         <table v-sort>
@@ -40,7 +40,7 @@
         <h3 class="mb-md">申请值班</h3>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">日期</label>
-          <input v-model="bookDate" type="date" class="input" />
+          <DatePicker v-model="bookDate" />
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">席位</label>

@@ -17,14 +17,7 @@
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">申请部门</label>
-          <select v-model="form.department" class="input" required>
-            <option value="">请选择</option>
-            <option value="管理部">管理部</option>
-            <option value="活动部">活动部</option>
-            <option value="技术部">技术部</option>
-            <option value="宣传部">宣传部</option>
-            <option value="人事部">人事部</option>
-          </select>
+          <SelectMenu v-model="form.department" :options="[{ value: '管理部', label: '管理部' }, { value: '活动部', label: '活动部' }, { value: '技术部', label: '技术部' }, { value: '宣传部', label: '宣传部' }, { value: '人事部', label: '人事部' }]" />
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">申请理由</label>

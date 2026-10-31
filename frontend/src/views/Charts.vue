@@ -70,7 +70,7 @@
         <div class="card-collapse-inner">
       <div class="flex gap-sm items-center flex-wrap" style="align-items:flex-end;">
         <div style="flex:1;min-width:160px;"><label class="text-sm font-bold mb-sm" style="display:block;">ICAO</label><input v-model="chartIcao" class="input" placeholder="如 ZGGG" maxlength="4" style="text-transform:uppercase;" @keyup.enter="onEnterSearch" /></div>
-        <div style="width:140px;"><label class="text-sm font-bold mb-sm" style="display:block;">提供商</label><select v-model="chartProvider" class="input"><option value="eaip">EAIP</option><option value="jeppesen">Jeppesen</option></select></div>
+        <div style="width:140px;"><label class="text-sm font-bold mb-sm" style="display:block;">提供商</label><SelectMenu v-model="chartProvider" :options="[{ value: 'eaip', label: 'EAIP' }, { value: 'jeppesen', label: 'Jeppesen' }]" /></div>
         <button class="btn btn-primary btn-sm" style="height:38px;align-self:flex-end;" @click="searchChart" :disabled="chartLoading">{{ chartLoading ? '查询中...' : '查询航图' }}</button>
       </div>
 

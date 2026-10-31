@@ -6,10 +6,7 @@
         <p>飞行知识、教程和参考资料</p>
       </div>
       <div class="flex gap-sm">
-        <select v-model="category" class="input" style="width:auto;" @change="load">
-          <option value="">全部分类</option>
-          <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-        </select>
+        <SelectMenu v-model="category" :options="categories.map((c) => ({ value: c, label: `${c}` }))" placeholder="全部分类" style="width:auto;" @change="load" />
       </div>
     </div>
 

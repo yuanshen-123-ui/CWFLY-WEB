@@ -123,10 +123,7 @@
         <h3 class="mb-md">报名参加活动</h3>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">选择活动</label>
-          <select v-model="joinEventId" class="input">
-            <option value="">-- 请选择 --</option>
-            <option v-for="e in activeEvents" :key="e.id" :value="e.id">{{ e.title }} ({{ e.date }})</option>
-          </select>
+          <SelectMenu v-model="joinEventId" :options="activeEvents.map((e) => ({ value: e.id, label: `${e.title} (${e.date})` }))" placeholder="-- 请选择 --" />
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">呼号</label>
@@ -150,17 +147,11 @@
         <div v-if="!isController" class="text-sm text-muted mb-md">仅管制员（C1 及以上）可报名管制席位。</div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">选择活动</label>
-          <select v-model="ctrlEventId" class="input" :disabled="!!detailEvent">
-            <option value="">-- 请选择 --</option>
-            <option v-for="e in activeEvents" :key="e.id" :value="e.id">{{ e.title }} ({{ e.date }})</option>
-          </select>
+          <SelectMenu v-model="ctrlEventId" :options="activeEvents.map((e) => ({ value: e.id, label: `${e.title} (${e.date})` }))" placeholder="-- 请选择 --" :disabled="!!detailEvent" />
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">管制席位</label>
-          <select v-model="ctrlPosition" class="input" :disabled="!isController">
-            <option value="">请选择席位</option>
-            <option v-for="(p, i) in ctrlPositions.length ? ctrlPositions : defaultPositions" :key="i" :value="p.callsign || p.type">{{ positionLabel(p) }}</option>
-          </select>
+          <SelectMenu v-model="ctrlPosition" :options="Object.entries(ctrlPositions.length ? ctrlPositions : defaultPositions).map(([i, p]) => ({ value: p.callsign || p.type, label: `${positionLabel(p)}` }))" placeholder="请选择席位" :disabled="!isController" />
         </div>
         <div class="flex gap-sm">
           <button class="btn btn-primary" @click="submitController" :disabled="ctrlLoading || !isController">{{ ctrlLoading ? '提交中...' : '确认报名' }}</button>
@@ -179,7 +170,7 @@
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">活动日期</label>
-          <input v-model="createForm.date" class="input" type="date" />
+          <DatePicker v-model="createForm.date" />
         </div>
         <div class="flex gap-sm mb-md">
           <div style="flex:1;">

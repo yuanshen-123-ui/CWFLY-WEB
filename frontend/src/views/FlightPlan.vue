@@ -36,10 +36,7 @@
           </div>
           <div class="form-col">
             <label class="text-sm font-bold mb-sm" style="display:block;">* 飞行类型</label>
-            <select v-model="form.flightType" class="input">
-              <option value="IFR">IFR（仪表飞行）</option>
-              <option value="VFR">VFR（目视飞行）</option>
-            </select>
+            <SelectMenu v-model="form.flightType" :options="[{ value: 'IFR', label: 'IFR（仪表飞行）' }, { value: 'VFR', label: 'VFR（目视飞行）' }]" />
           </div>
         </div>
 
@@ -59,13 +56,7 @@
         <div class="form-row">
           <div class="form-col">
             <label class="text-sm font-bold mb-sm" style="display:block;">* 尾流分类</label>
-            <select v-model="form.wakeCategory" class="input">
-              <option value="">请选择</option>
-              <option value="L">轻型机 (MTOW&lt;=7000kg)</option>
-              <option value="M">中型机 (MTOW&lt;=136000kg)</option>
-              <option value="H">重型机</option>
-              <option value="J">超重型机 (A388)</option>
-            </select>
+            <SelectMenu v-model="form.wakeCategory" :options="[{ value: 'L', label: '轻型机 (MTOW&lt;=7000kg)' }, { value: 'M', label: '中型机 (MTOW&lt;=136000kg)' }, { value: 'H', label: '重型机' }, { value: 'J', label: '超重型机 (A388)' }]" />
           </div>
           <div class="form-col">
             <label class="text-sm font-bold mb-sm" style="display:block;">* 巡航高度 (ft)</label>

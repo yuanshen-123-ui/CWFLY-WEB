@@ -63,11 +63,11 @@
         <p class="text-sm text-muted mb-md">设置两个可选的面试时间</p>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">面试时间①</label>
-          <input v-model="interviewTime1" class="input" type="datetime-local" />
+          <DatePicker v-model="interviewTime1" with-time />
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">面试时间②</label>
-          <input v-model="interviewTime2" class="input" type="datetime-local" />
+          <DatePicker v-model="interviewTime2" with-time />
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">审批理由</label>

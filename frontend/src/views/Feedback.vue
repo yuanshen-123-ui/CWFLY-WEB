@@ -23,12 +23,7 @@
             </div>
             <div class="mb-md">
               <label class="text-sm font-bold mb-sm" style="display:block;">类型</label>
-              <select v-model="fb.type" class="input">
-                <option value="投诉">投诉</option>
-                <option value="建议">建议</option>
-                <option value="咨询">咨询</option>
-                <option value="其他">其他</option>
-              </select>
+              <SelectMenu v-model="fb.type" :options="[{ value: '投诉', label: '投诉' }, { value: '建议', label: '建议' }, { value: '咨询', label: '咨询' }, { value: '其他', label: '其他' }]" />
             </div>
             <div class="mb-md">
               <label class="text-sm font-bold mb-sm" style="display:block;">内容</label>

@@ -27,7 +27,7 @@
         <div class="mb-md"><label class="text-sm font-bold mb-sm" style="display:block;">职位</label><input v-model="form.position" class="input" placeholder="如 职员" /></div>
         <div class="mb-md"><label class="text-sm font-bold mb-sm" style="display:block;">评级</label><input v-model="form.rating" class="input" placeholder="可选" /></div>
         <div class="mb-md flex items-center gap-sm">
-          <input v-model="form.active" type="checkbox" id="active" />
+          <CheckBox :model-value="form.active" @update:model-value="form.active = $event" id="active" />
           <label for="active" class="text-sm">在职</label>
         </div>
         <div class="flex gap-sm">

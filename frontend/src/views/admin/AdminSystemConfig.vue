@@ -115,10 +115,7 @@
         <!-- 添加集合 -->
         <div class="ban-add">
           <input v-model="newGroupName" class="input" style="flex:1;" placeholder="集合名称" />
-          <select v-model="newGroupType" class="input" style="max-width:110px;">
-            <option value="black">黑名单</option>
-            <option value="white">白名单</option>
-          </select>
+          <SelectMenu v-model="newGroupType" :options="[{ value: 'black', label: '黑名单' }, { value: 'white', label: '白名单' }]" style="max-width:110px;" />
           <button class="btn btn-primary btn-sm" @click="addIpGroup" :disabled="!newGroupName.trim()">添加集合</button>
           <button class="btn btn-outline btn-sm" title="导入 txt 文件到指定集合" @click="pickIpFile">导入 txt</button>
           <input ref="ipFileInput" type="file" accept=".txt,text/plain" style="display:none;" @change="onIpFileChange" />
@@ -127,16 +124,10 @@
         <div v-if="importPending" class="ip-import-panel">
           <div class="ip-import-title">已解析到 {{ importItems.length }} 条 IP，请选择要添加到的集合：</div>
           <div class="ip-import-row">
-            <select v-model="importGroupId" class="input" style="flex:1;">
-              <option v-for="g in ipGroups" :key="g.id" :value="g.id">{{ g.name || ('集合#' + g.id) }}（{{ g.type === 'white' ? '白名单' : '黑名单' }}）</option>
-              <option :value="-1">＋ 新建集合</option>
-            </select>
+            <SelectMenu v-model="importGroupId" :options="[ipGroups.map((g) => ({ value: g.id, label: `${g.name || ('集合#' + g.id)}（${g.type === 'white' ? '白名单' : '黑名单'}）` })), { value: -1, label: '＋ 新建集合' }]" style="flex:1;" />
             <template v-if="importGroupId === -1">
               <input v-model="importNewName" class="input" style="flex:1;" placeholder="新集合名称" />
-              <select v-model="importNewType" class="input" style="max-width:110px;">
-                <option value="black">黑名单</option>
-                <option value="white">白名单</option>
-              </select>
+              <SelectMenu v-model="importNewType" :options="[{ value: 'black', label: '黑名单' }, { value: 'white', label: '白名单' }]" style="max-width:110px;" />
             </template>
             <button class="btn btn-primary btn-sm" @click="confirmImport" :disabled="importLoading || (importGroupId === -1 && !importNewName.trim())">
               <span v-if="importLoading" class="ip-spinner" aria-hidden="true"></span>{{ importLoading ? '正在导入…' : '确认导入' }}

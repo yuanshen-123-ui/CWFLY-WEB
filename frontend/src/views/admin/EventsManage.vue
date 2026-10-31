@@ -22,7 +22,7 @@
           </div>
           <div class="form-col">
             <label class="text-sm font-bold mb-sm" style="display:block;">活动时间 *</label>
-            <input v-model="formDateTime" class="input" type="datetime-local" />
+            <DatePicker v-model="formDateTime" with-time />
           </div>
         </div>
         <div class="form-row">
@@ -90,12 +90,7 @@
           </div>
           <div class="form-col">
             <label class="text-sm font-bold mb-sm" style="display:block;">状态</label>
-            <select v-model="form.status" class="input">
-              <option value="报名中">报名中</option>
-              <option value="进行中">进行中</option>
-              <option value="筹备中">筹备中</option>
-              <option value="已结束">已结束</option>
-            </select>
+            <SelectMenu v-model="form.status" :options="[{ value: '报名中', label: '报名中' }, { value: '进行中', label: '进行中' }, { value: '筹备中', label: '筹备中' }, { value: '已结束', label: '已结束' }]" />
           </div>
         </div>
         <div class="mb-md">

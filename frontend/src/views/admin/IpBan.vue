@@ -23,11 +23,7 @@
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">封禁时长</label>
-          <select v-model="durationType" class="input" style="max-width:220px;">
-            <option value="permanent">永久封禁</option>
-            <option value="hours">按小时</option>
-            <option value="days">按天</option>
-          </select>
+          <SelectMenu v-model="durationType" :options="[{ value: 'permanent', label: '永久封禁' }, { value: 'hours', label: '按小时' }, { value: 'days', label: '按天' }]" style="max-width:220px;" />
           <input v-if="durationType !== 'permanent'" v-model.number="durationValue" type="number" min="1" class="input" style="max-width:120px;margin-left:8px;" :placeholder="durationType === 'hours' ? '小时' : '天'" />
         </div>
         <div class="flex gap-sm">

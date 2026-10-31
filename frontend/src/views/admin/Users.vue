@@ -60,22 +60,20 @@
         <div class="modal-field"><label>CID</label><span>{{ editUser.cid }}</span></div>
         <div class="modal-field">
           <label>角色</label>
-          <select v-model.number="editRating" class="input">
-            <option :value="0">普通用户</option>
-            <option :value="8">协管员</option>
-            <option :value="9">高级协管员</option>
-            <!-- 仅超级管理员可提升到管理员/超级管理员 -->
-            <template v-if="userStore.rating >= 12">
-              <option :value="11">管理员</option>
-              <option :value="12">超级管理员</option>
-            </template>
-          </select>
+          <SelectMenu
+              :model-value="editRating"
+              @update:model-value="editRating = $event"
+              :options="[
+                { value: 0, label: '普通用户' },
+                { value: 8, label: '协管员' },
+                { value: 9, label: '高级协管员' },
+                ...(userStore.rating >= 12 ? [{ value: 11, label: '管理员' }, { value: 12, label: '超级管理员' }] : []),
+              ]"
+            />
         </div>
         <div class="modal-field">
           <label>FSD 等级</label>
-          <select v-model.number="editFsdLevel" class="input">
-            <option v-for="(name, lv) in FSD_LEVEL_NAMES" :key="lv" :value="Number(lv)">{{ name }}</option>
-          </select>
+          <SelectMenu v-model="editFsdLevel" :options="Object.entries(FSD_LEVEL_NAMES).map(([lv, name]) => ({ value: Number(lv), label: `${name}` }))" />
         </div>
         <button type="button" class="more-toggle" @click="expandMore = !expandMore">
           {{ expandMore ? '▽ 收起' : '△ 更多' }}
@@ -116,7 +114,7 @@
           确定删除用户 <b>{{ deleteTarget.username }}</b>（CID: {{ deleteTarget.cid }}）？此操作不可恢复。
         </p>
         <label class="ban-check">
-          <input type="checkbox" v-model="deleteBan" />
+          <CheckBox :model-value="deleteBan" @update:model-value="deleteBan = $event" />
           <span>同时加入黑名单</span>
         </label>
         <!-- 勾选黑名单后：预览将新增的封禁记录（IP/原因可输入/封禁人）；无有效 IP 时给出提示 -->

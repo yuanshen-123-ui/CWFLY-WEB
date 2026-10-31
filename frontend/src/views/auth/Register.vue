@@ -6,73 +6,79 @@
         <p class="text-muted mt-sm">注册新账号</p>
       </div>
 
-      <form @submit.prevent="handleRegister">
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">CID</label>
-          <div class="flex gap-sm">
-            <input v-model="form.cid" class="input" :class="{ 'input-error': errors.cid }" placeholder="4位数字 CID" maxlength="4" pattern="\d{4}" required style="flex:1;" @input="onCidInput" />
+      <form @submit.prevent="handleRegister" novalidate>
+        <FormField label="CID" required for-id="reg-cid" :error="errors.cid" :hint="cidOk ? '该 CID 可用' : '4 位数字，注册后不可修改'">
+          <div class="input-row">
+            <input
+              id="reg-cid" v-model="form.cid" class="input" style="flex:1;"
+              inputmode="numeric" maxlength="4" placeholder="4 位数字 CID"
+              autocomplete="username" aria-required="true"
+              :aria-invalid="!!errors.cid" @input="onCidInput"
+            />
             <button type="button" class="btn btn-outline btn-sm" @click="randomCid" :disabled="checkingCid || randomLocked">随机</button>
           </div>
-          <p v-if="errors.cid" class="text-xs mt-xs" style="color:var(--c-danger);">{{ errors.cid }}</p>
-          <p v-else-if="randomLimitMsg" class="text-xs mt-xs" style="color:var(--c-danger);">{{ randomLimitMsg }}</p>
-          <p v-else-if="cidOk" class="text-xs mt-xs" style="color:var(--c-success);">该 CID 可用</p>
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">用户名</label>
-          <input v-model="form.username" class="input" :class="{ 'input-error': errors.username }" placeholder="输入用户名" required />
-          <p v-if="errors.username" class="text-xs mt-xs" style="color:var(--c-danger);">{{ errors.username }}</p>
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">密码</label>
-          <input v-model="form.password" class="input" :class="{ 'input-error': errors.password }" type="password" placeholder="至少 6 位" required />
-          <p v-if="errors.password" class="text-xs mt-xs" style="color:var(--c-danger);">{{ errors.password }}</p>
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">确认密码</label>
-          <input v-model="form.confirm" class="input" :class="{ 'input-error': errors.confirm }" type="password" placeholder="再次输入密码" required />
-          <p v-if="errors.confirm" class="text-xs mt-xs" style="color:var(--c-danger);">{{ errors.confirm }}</p>
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">邮箱</label>
-          <div class="flex gap-sm">
-            <input v-model="form.email" class="input" :class="{ 'input-error': errors.email }" type="email" placeholder="your@email.com" required style="flex:1;" />
+          <p v-if="randomLimitMsg" class="hint err">{{ randomLimitMsg }}</p>
+        </FormField>
+
+        <FormField label="用户名" required for-id="reg-username" :error="errors.username">
+          <input id="reg-username" v-model="form.username" class="input" placeholder="输入用户名" autocomplete="nickname" aria-required="true" :aria-invalid="!!errors.username" />
+        </FormField>
+
+        <FormField label="邮箱" required for-id="reg-email" :error="errors.email">
+          <div class="input-row">
+            <input id="reg-email" v-model="form.email" class="input" type="email" placeholder="your@email.com" autocomplete="email" aria-required="true" :aria-invalid="!!errors.email" style="flex:1;" />
             <button type="button" class="btn btn-outline btn-sm" @click="sendEmailCode" :disabled="sendingCode || codeCooldown > 0">
               {{ codeCooldown > 0 ? codeCooldown + 's' : sendingCode ? '发送中...' : '发送验证码' }}
             </button>
           </div>
-          <p v-if="errors.email" class="text-xs mt-xs" style="color:var(--c-danger);">{{ errors.email }}</p>
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">邮箱验证码</label>
-          <input v-model="form.emailCode" class="input" placeholder="输入6位验证码" maxlength="6" required />
-        </div>
-        
+        </FormField>
 
-        <p v-if="err" class="text-sm mb-md" style="color:var(--c-danger);">{{ err }}</p>
+        <FormField label="邮箱验证码" required for-id="reg-code">
+          <input id="reg-code" v-model="form.emailCode" class="input" placeholder="输入 6 位验证码" maxlength="6" inputmode="numeric" autocomplete="one-time-code" aria-required="true" />
+        </FormField>
 
-        <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
-          {{ loading ? '注册中...' : '注册' }}
-        </button>
+        <FormField label="密码" required for-id="reg-pwd" :error="errors.password" hint="8-64 位，须同时包含字母和数字">
+          <input id="reg-pwd" v-model="form.password" class="input" type="password" placeholder="设置密码" autocomplete="new-password" aria-required="true" :aria-invalid="!!errors.password" />
+        </FormField>
 
-        <p class="text-xs mt-sm text-muted" style="line-height:1.7;text-align:center;">注册即表示你已阅读并同意 <router-link to="/user-agreement">《用户协议》</router-link> 与 <router-link to="/privacy-policy">《隐私政策》</router-link></p>
+        <FormField label="确认密码" required for-id="reg-confirm" :error="errors.confirm">
+          <input id="reg-confirm" v-model="form.confirm" class="input" type="password" placeholder="再次输入密码" autocomplete="new-password" aria-required="true" :aria-invalid="!!errors.confirm" />
+        </FormField>
+
+        <FormField :error="agreeError">
+          <label class="agree-row">
+            <CheckBox v-model="agree" id="reg-agree" />
+            <span class="text-sm">
+              我已阅读并同意
+              <router-link to="/user-agreement" target="_blank">《用户协议》</router-link> 与
+              <router-link to="/privacy-policy" target="_blank">《隐私政策》</router-link>
+            </span>
+          </label>
+        </FormField>
+
+        <div v-if="err" class="alert alert-err">{{ err }}</div>
+
+        <SubmitButton :status="loading ? 'loading' : 'idle'" label="注 册" />
       </form>
 
       <div class="text-center mt-md text-sm text-muted">
-        已有账号？ <router-link to="/login">去登录</router-link>
+        已有账号？<router-link to="/login">去登录</router-link>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onUnmounted } from 'vue'
+import { ref, reactive, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { waitForPowToken } from '@/utils/pow'
 
 const router = useRouter()
 const userStore = useUserStore()
-const form = ref({ cid: '', username: '', password: '', confirm: '', captcha: '' })
+const form = ref({ cid: '', username: '', password: '', confirm: '', email: '', emailCode: '', captcha: '' })
+const agree = ref(false)
+const agreeError = ref('')
 const errors = reactive({})
 const err = ref('')
 const loading = ref(false)
@@ -83,6 +89,8 @@ const cidOk = ref(false)
 onUnmounted(() => {
   if (randomLimitTimer) clearInterval(randomLimitTimer)
 })
+
+watch(agree, (v) => { if (v) agreeError.value = '' })
 
 let cidCheckTimer = null
 
@@ -238,6 +246,7 @@ function startCooldown(secs) {
  */
 function validate() {
   Object.keys(errors).forEach(k => errors[k] = '')
+  agreeError.value = ''
   let ok = true
   if (!/^\d+$/.test(form.value.cid)) { errors.cid = 'CID 必须为数字'; ok = false }
   if (form.value.username.length < 2) { errors.username = '用户名至少 2 个字符'; ok = false }
@@ -248,6 +257,7 @@ function validate() {
   if (form.value.password !== form.value.confirm) { errors.confirm = '两次密码不一致'; ok = false }
   if (!form.value.email) { errors.email = '请输入邮箱'; ok = false }
   if (!form.value.emailCode) { errors.email = '请输入邮箱验证码'; ok = false }
+  if (!agree.value) { agreeError.value = '请先勾选同意《用户协议》与《隐私政策》'; ok = false }
   return ok
 }
 
@@ -299,6 +309,8 @@ async function handleRegister() {
   text-decoration: none;
 }
 .auth-logo:hover { text-decoration: none; }
+.agree-row { display: flex; align-items: flex-start; gap: 9px; line-height: 1.6; }
+.agree-row :deep(a) { color: var(--c-primary); }
 .captcha-box {
   display: inline-flex;
   align-items: center;

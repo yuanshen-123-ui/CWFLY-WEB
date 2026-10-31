@@ -6,13 +6,7 @@
         <p>处理用户提交的工单和反馈</p>
       </div>
       <div class="flex gap-sm items-center">
-        <select v-model="filterStatus" class="input" style="width:140px;" @change="load()">
-          <option value="">全部状态</option>
-          <option value="open">待处理</option>
-          <option value="in_progress">处理中</option>
-          <option value="resolved">已解决</option>
-          <option value="closed">已关闭</option>
-        </select>
+        <SelectMenu v-model="filterStatus" :options="[{ value: 'open', label: '待处理' }, { value: 'in_progress', label: '处理中' }, { value: 'resolved', label: '已解决' }, { value: 'closed', label: '已关闭' }]" placeholder="全部状态" style="width:140px;" @change="load()" />
       </div>
     </div>
 
@@ -46,12 +40,7 @@
               <td class="text-sm truncate" style="max-width:100px;">{{ t.assignee || '-' }}</td>
               <td>
                 <span v-if="editing === t.id">
-                  <select v-model="editStatus" class="input" style="width:120px;" @change="saveStatus(t)">
-                    <option value="open">待处理</option>
-                    <option value="in_progress">处理中</option>
-                    <option value="resolved">已解决</option>
-                    <option value="closed">已关闭</option>
-                  </select>
+                  <SelectMenu v-model="editStatus" :options="[{ value: 'open', label: '待处理' }, { value: 'in_progress', label: '处理中' }, { value: 'resolved', label: '已解决' }, { value: 'closed', label: '已关闭' }]" style="width:120px;" @change="saveStatus(t)" />
                 </span>
                 <span v-else class="badge" :class="statusBadge(t.status)" style="cursor:pointer;" @click="startEdit(t)">{{ statusLabel(t.status) }}</span>
               </td>
@@ -86,12 +75,7 @@
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">负责人</label>
-          <select v-model="replyAssignee" class="input">
-            <option value="">-- 请选择负责人 --</option>
-            <option v-for="s in staffList" :key="s.cid" :value="s.name">
-              {{ s.name }} ({{ s.department }})
-            </option>
-          </select>
+          <SelectMenu v-model="replyAssignee" :options="staffList.map((s) => ({ value: s.name, label: `${s.name} (${s.department})` }))" placeholder="-- 请选择负责人 --" />
         </div>
         <div class="flex gap-sm">
           <button class="btn btn-primary" @click="submitReply">提交回复</button>

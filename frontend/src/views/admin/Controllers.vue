@@ -29,13 +29,7 @@
         <div class="form-row">
           <div class="form-col">
             <label class="text-sm font-bold mb-sm" style="display:block;">部门</label>
-            <select v-model="form.department" class="input">
-              <option value="管制部">管制部</option>
-              <option value="培训部">培训部</option>
-              <option value="塔台管制">塔台管制</option>
-              <option value="进近管制">进近管制</option>
-              <option value="区域管制">区域管制</option>
-            </select>
+            <SelectMenu v-model="form.department" :options="[{ value: '管制部', label: '管制部' }, { value: '培训部', label: '培训部' }, { value: '塔台管制', label: '塔台管制' }, { value: '进近管制', label: '进近管制' }, { value: '区域管制', label: '区域管制' }]" />
           </div>
           <div class="form-col">
             <label class="text-sm font-bold mb-sm" style="display:block;">职位</label>
@@ -44,21 +38,10 @@
         </div>
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">评级</label>
-          <select v-model="form.rating" class="input">
-            <option value="">无评级</option>
-            <option value="S1">S1 — 学员</option>
-            <option value="S2">S2 — 初级</option>
-            <option value="S3">S3 — 中级</option>
-            <option value="C1">C1 — 高级</option>
-            <option value="C3">C3 — 主任</option>
-            <option value="I1">I1 — 教员</option>
-            <option value="I3">I3 — 高级教员</option>
-            <option value="SUP">SUP — 主管</option>
-            <option value="ADM">ADM — 管理员</option>
-          </select>
+          <SelectMenu v-model="form.rating" :options="[{ value: 'S1', label: 'S1 — 学员' }, { value: 'S2', label: 'S2 — 初级' }, { value: 'S3', label: 'S3 — 中级' }, { value: 'C1', label: 'C1 — 高级' }, { value: 'C3', label: 'C3 — 主任' }, { value: 'I1', label: 'I1 — 教员' }, { value: 'I3', label: 'I3 — 高级教员' }, { value: 'SUP', label: 'SUP — 主管' }, { value: 'ADM', label: 'ADM — 管理员' }]" placeholder="无评级" />
         </div>
         <div class="mb-md flex items-center gap-sm">
-          <input v-model="form.active" type="checkbox" id="active" />
+          <CheckBox :model-value="form.active" @update:model-value="form.active = $event" id="active" />
           <label for="active" class="text-sm">在职</label>
         </div>
         <div class="flex gap-sm">
@@ -95,13 +78,7 @@
               </td>
               <td>
                 <span v-if="editing === c.cid">
-                  <select v-model="editDept" class="input" style="width:120px;">
-                    <option value="管制部">管制部</option>
-                    <option value="培训部">培训部</option>
-                    <option value="塔台管制">塔台管制</option>
-                    <option value="进近管制">进近管制</option>
-                    <option value="区域管制">区域管制</option>
-                  </select>
+                  <SelectMenu v-model="editDept" :options="[{ value: '管制部', label: '管制部' }, { value: '培训部', label: '培训部' }, { value: '塔台管制', label: '塔台管制' }, { value: '进近管制', label: '进近管制' }, { value: '区域管制', label: '区域管制' }]" style="width:120px;" />
                 </span>
                 <span v-else>{{ c.department }}</span>
               </td>
@@ -113,18 +90,7 @@
               </td>
               <td>
                 <span v-if="editing === c.cid">
-                  <select v-model="editRating" class="input" style="width:100px;">
-                    <option value="">无</option>
-                    <option value="S1">S1</option>
-                    <option value="S2">S2</option>
-                    <option value="S3">S3</option>
-                    <option value="C1">C1</option>
-                    <option value="C3">C3</option>
-                    <option value="I1">I1</option>
-                    <option value="I3">I3</option>
-                    <option value="SUP">SUP</option>
-                    <option value="ADM">ADM</option>
-                  </select>
+                  <SelectMenu v-model="editRating" :options="[{ value: 'S1', label: 'S1' }, { value: 'S2', label: 'S2' }, { value: 'S3', label: 'S3' }, { value: 'C1', label: 'C1' }, { value: 'C3', label: 'C3' }, { value: 'I1', label: 'I1' }, { value: 'I3', label: 'I3' }, { value: 'SUP', label: 'SUP' }, { value: 'ADM', label: 'ADM' }]" placeholder="无" style="width:100px;" />
                 </span>
                 <span v-else class="badge badge-info">{{ c.rating || '-' }}</span>
               </td>

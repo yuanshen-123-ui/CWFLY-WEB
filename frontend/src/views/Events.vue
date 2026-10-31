@@ -24,7 +24,7 @@
             </div>
             <div class="form-col">
               <label class="text-sm font-bold mb-sm" style="display:block;">活动时间 *</label>
-              <input v-model="form.date" class="input" type="date" />
+              <DatePicker v-model="form.date" />
             </div>
           </div>
           <div class="form-row">
@@ -54,28 +54,10 @@
           <div class="mb-md">
             <label class="text-sm font-bold mb-sm" style="display:block;">管制席位 <button class="btn btn-outline btn-xs" @click="addPosition" type="button">+ 添加席位</button></label>
             <div v-for="(pos, i) in form.positions" :key="i" class="flex gap-sm items-center mb-xs">
-              <select v-model="pos.type" class="input" style="width:100px;" @change="autoFrequency(pos)">
-                <option value="">席位</option>
-                <option value="DEL">放行 DEL</option>
-                <option value="GND">地面 GND</option>
-                <option value="TWR">塔台 TWR</option>
-                <option value="APP">进近 APP</option>
-                <option value="CTR">区域 CTR</option>
-              </select>
+              <SelectMenu v-model="pos.type" :options="[{ value: 'DEL', label: '放行 DEL' }, { value: 'GND', label: '地面 GND' }, { value: 'TWR', label: '塔台 TWR' }, { value: 'APP', label: '进近 APP' }, { value: 'CTR', label: '区域 CTR' }]" placeholder="席位" style="width:100px;" @change="autoFrequency(pos)" />
               <input v-model="pos.callsign" class="input" placeholder="如 ZBAA_TWR" style="flex:1;" />
               <input v-model="pos.frequency" class="input" placeholder="频率" style="width:80px;" />
-              <select v-model="pos.rating" class="input" style="width:90px;">
-                <option value="">等级</option>
-                <option value="S1">S1</option>
-                <option value="S2">S2</option>
-                <option value="S3">S3</option>
-                <option value="C1">C1</option>
-                <option value="C2">C2</option>
-                <option value="C3">C3</option>
-                <option value="I1">I1</option>
-                <option value="I2">I2</option>
-                <option value="I3">I3</option>
-              </select>
+              <SelectMenu v-model="pos.rating" :options="[{ value: 'S1', label: 'S1' }, { value: 'S2', label: 'S2' }, { value: 'S3', label: 'S3' }, { value: 'C1', label: 'C1' }, { value: 'C2', label: 'C2' }, { value: 'C3', label: 'C3' }, { value: 'I1', label: 'I1' }, { value: 'I2', label: 'I2' }, { value: 'I3', label: 'I3' }]" placeholder="等级" style="width:90px;" />
               <button class="btn btn-outline btn-xs" style="color:var(--c-danger);" @click="form.positions.splice(i,1)" type="button">×</button>
             </div>
             <p class="text-xs text-muted mt-sm">添加席位后自动匹配常用频率，也可手动修改</p>
@@ -87,12 +69,7 @@
             </div>
             <div class="form-col">
               <label class="text-sm font-bold mb-sm" style="display:block;">状态</label>
-              <select v-model="form.status" class="input">
-                <option value="报名中">报名中</option>
-                <option value="进行中">进行中</option>
-                <option value="筹备中">筹备中</option>
-                <option value="已结束">已结束</option>
-              </select>
+              <SelectMenu v-model="form.status" :options="[{ value: '报名中', label: '报名中' }, { value: '进行中', label: '进行中' }, { value: '筹备中', label: '筹备中' }, { value: '已结束', label: '已结束' }]" />
             </div>
           </div>
           <div class="mb-md">

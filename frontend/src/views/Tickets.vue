@@ -19,23 +19,11 @@
         <div class="form-row">
           <div class="form-col">
             <label class="text-sm font-bold mb-sm" style="display:block;">分类</label>
-            <select v-model="form.category" class="input">
-              <option value="general">通用咨询</option>
-              <option value="technical">技术支持</option>
-              <option value="account">账号问题</option>
-              <option value="feedback">意见建议</option>
-              <option value="complaint">投诉</option>
-              <option value="other">其他</option>
-            </select>
+            <SelectMenu v-model="form.category" :options="[{ value: 'general', label: '通用咨询' }, { value: 'technical', label: '技术支持' }, { value: 'account', label: '账号问题' }, { value: 'feedback', label: '意见建议' }, { value: 'complaint', label: '投诉' }, { value: 'other', label: '其他' }]" />
           </div>
           <div class="form-col">
             <label class="text-sm font-bold mb-sm" style="display:block;">优先级</label>
-            <select v-model="form.priority" class="input">
-              <option value="low">低</option>
-              <option value="normal">普通</option>
-              <option value="high">高</option>
-              <option value="urgent">紧急</option>
-            </select>
+            <SelectMenu v-model="form.priority" :options="[{ value: 'low', label: '低' }, { value: 'normal', label: '普通' }, { value: 'high', label: '高' }, { value: 'urgent', label: '紧急' }]" />
           </div>
         </div>
         <div class="mb-md">

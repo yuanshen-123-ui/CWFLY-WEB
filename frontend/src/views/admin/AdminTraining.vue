@@ -52,9 +52,7 @@
         <div class="mb-md"><input v-model="newCourse.title" class="input" placeholder="课程标题" /></div>
         <div class="mb-md"><input v-model="newCourse.category" class="input" placeholder="分类" /></div>
         <div class="mb-md">
-          <select v-model="newCourse.difficulty" class="input">
-            <option value="初级">初级</option><option value="中级">中级</option><option value="高级">高级</option>
-          </select>
+          <SelectMenu v-model="newCourse.difficulty" :options="[{ value: '初级', label: '初级' }, { value: '中级', label: '中级' }, { value: '高级', label: '高级' }]" />
         </div>
         <div class="mb-md"><textarea v-model="newCourse.content" class="input" rows="4" placeholder="课程内容"></textarea></div>
         <div class="flex gap-sm">
