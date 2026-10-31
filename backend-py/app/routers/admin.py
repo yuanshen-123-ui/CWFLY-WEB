@@ -3250,7 +3250,7 @@ async def admin_achievements(
     _perm: CurrentUser = Depends(require_permission(PERM_USER)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    rows = (await db.execute(text("SELECT * FROM `Achievement` ORDER BY `id` DESC"))).all()
+    rows = (await db.execute(text(sel("Achievement", "ORDER BY `id` DESC")))).all()
     return _ok(_rows(rows))
 
 
@@ -3280,7 +3280,7 @@ async def admin_create_achievement(
     await db.commit()
     row = (
         await db.execute(
-            text("SELECT * FROM `Achievement` WHERE `id` = :id"), {"id": result.lastrowid}
+            text(sel("Achievement", "WHERE `id` = :id")), {"id": result.lastrowid}
         )
     ).first()
     return _ok(_row(row) if row is not None else None)
@@ -3311,7 +3311,7 @@ async def admin_config(
     _perm: CurrentUser = Depends(require_permission(PERM_USER)),
     db: AsyncSession = Depends(get_db),
 ) -> JSJSONResponse:
-    rows = (await db.execute(text("SELECT * FROM `SystemConfig`"))).all()
+    rows = (await db.execute(text(sel("SystemConfig")))).all()
     return _ok(_rows(rows))
 
 
@@ -3335,7 +3335,7 @@ async def admin_update_config(
     )
     await db.commit()
     row = (
-        await db.execute(text("SELECT * FROM `SystemConfig` WHERE `key` = :key"), {"key": key})
+        await db.execute(text(sel("SystemConfig", "WHERE `key` = :key")), {"key": key})
     ).first()
     return _ok(_row(row) if row is not None else None)
 
