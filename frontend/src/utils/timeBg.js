@@ -24,13 +24,13 @@
  */
 
 const IMG = {
-  nt_1: '/bg-home/nt_1.png', nt_2: '/bg-home/nt_2.png',
-  nt_3: '/bg-home/nt_3.png', nt_4: '/bg-home/nt_4.png',
-  mn_1: '/bg-home/mn_1.png', mn_2: '/bg-home/mn_2.png', mn_3: '/bg-home/mn_3.png',
-  aft_1: '/bg-home/aft_1.png', aft_2: '/bg-home/aft_2.png',
-  aft_3: '/bg-home/aft_3.png', aft_4: '/bg-home/aft_4.png',
-  eve_1: '/bg-home/eve_1.png', eve_2: '/bg-home/eve_2.png',
-  eve_3: '/bg-home/eve_3.png', eve_4: '/bg-home/eve_4.png',
+  nt_1: '/bg-home/nt_1.webp', nt_2: '/bg-home/nt_2.webp',
+  nt_3: '/bg-home/nt_3.webp', nt_4: '/bg-home/nt_4.webp',
+  mn_1: '/bg-home/mn_1.webp', mn_2: '/bg-home/mn_2.webp', mn_3: '/bg-home/mn_3.webp',
+  aft_1: '/bg-home/aft_1.webp', aft_2: '/bg-home/aft_2.webp',
+  aft_3: '/bg-home/aft_3.webp', aft_4: '/bg-home/aft_4.webp',
+  eve_1: '/bg-home/eve_1.webp', eve_2: '/bg-home/eve_2.webp',
+  eve_3: '/bg-home/eve_3.webp', eve_4: '/bg-home/eve_4.webp',
 }
 
 /**
