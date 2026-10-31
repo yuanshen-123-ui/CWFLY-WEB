@@ -303,10 +303,11 @@
 
       <main class="app-content">
         <div class="app-content__inner">
-          <div v-if="routeLoading" class="route-loading">
-            <div class="spinner"></div>
-            <span>加载中...</span>
-          </div>
+          <Transition name="route-bar">
+            <div v-if="routeLoading" class="route-loading-bar" aria-hidden="true">
+              <span class="route-loading-bar__inner"></span>
+            </div>
+          </Transition>
           <router-view />
         </div>
       </main>
@@ -713,15 +714,35 @@ onUnmounted(() => {
   document.removeEventListener('keydown', onEscapeKey)
   cancelAnimationFrame(rafId)
   swapTimers.forEach(clearTimeout)
+  if (routeLoadingTimer) clearTimeout(routeLoadingTimer)
   if (topbarCloseTimer) clearTimeout(topbarCloseTimer)
 })
 
 // ---------------------------------------------------------------------------
 // 路由加载动画
 // ---------------------------------------------------------------------------
-router.beforeEach(() => { routeLoading.value = true })
-router.afterEach(() => { routeLoading.value = false })
-router.onError(() => { routeLoading.value = false })
+let routeLoadingTimer = null
+
+/** 导航开始：延迟显示进度条，命中预取/缓存的瞬时导航完全不出现指示器 */
+function beginRouteLoading() {
+  if (routeLoadingTimer) return
+  routeLoadingTimer = setTimeout(() => {
+    routeLoadingTimer = null
+    routeLoading.value = true
+  }, 160)
+}
+
+function endRouteLoading() {
+  if (routeLoadingTimer) {
+    clearTimeout(routeLoadingTimer)
+    routeLoadingTimer = null
+  }
+  routeLoading.value = false
+}
+
+router.beforeEach(() => { beginRouteLoading() })
+router.afterEach(() => { endRouteLoading() })
+router.onError(() => { endRouteLoading() })
 
 // ---------------------------------------------------------------------------
 // 头像
@@ -1541,34 +1562,35 @@ html[data-theme='dark'] .sidebar-user:hover { background: rgba(255, 255, 255, .0
   width: 100%;
 }
 
-/* ---------- 路由加载动画 ---------- */
-.route-loading {
-  position: absolute;
-  inset: 0;
-  z-index: 999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  background: rgba(255, 255, 255, .6);
-  backdrop-filter: blur(8px);
-  color: var(--c-text-secondary);
-  font-size: 14px;
-  font-weight: 500;
+/* ---------- 路由加载指示：顶部细进度条（不再用全屏白色遮罩，避免切换页面闪白） ---------- */
+.route-loading-bar {
+  position: fixed;
+  top: var(--header-h);
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 1100;
+  overflow: hidden;
+  pointer-events: none;
 }
-
-.spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid var(--glass-border);
-  border-top-color: var(--c-primary);
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
+.route-loading-bar__inner {
+  display: block;
+  height: 100%;
+  width: 38%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--c-primary), transparent);
+  animation: route-bar-run 1.05s ease-in-out infinite;
 }
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+@keyframes route-bar-run {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(320%); }
+}
+.route-bar-enter-active,
+.route-bar-leave-active { transition: opacity .18s ease; }
+.route-bar-enter-from,
+.route-bar-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .route-loading-bar__inner { animation-duration: 1.6s; }
 }
 
 /* ================= 布局切换（三段式，对齐 CTYFLY-WEB） ================= */
