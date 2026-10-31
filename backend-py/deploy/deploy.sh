@@ -78,9 +78,9 @@ echo "=== [5] 启动（API 2 worker + 后台任务独立进程）==="
 pm2 delete cwfly-api-py >/dev/null 2>&1 || true
 pm2 delete cwfly-worker-py >/dev/null 2>&1 || true
 REDIS_URL=${SOCKETIO_REDIS_URL:-redis://127.0.0.1:6379/0}
-BACKGROUND_JOBS=0 SOCKETIO_REDIS_URL="$REDIS_URL" pm2 start .venv/bin/python --name cwfly-api-py -- \
+NODE_ENV=production BACKGROUND_JOBS=0 SOCKETIO_REDIS_URL="$REDIS_URL" pm2 start .venv/bin/python --name cwfly-api-py -- \
   -m uvicorn app.asgi:application --host 127.0.0.1 --port 3001 --workers 2 --no-access-log --log-level warning
-SOCKETIO_REDIS_URL="$REDIS_URL" BACKGROUND_JOBS=1 pm2 start .venv/bin/python --name cwfly-worker-py -- -m app.worker
+NODE_ENV=production SOCKETIO_REDIS_URL="$REDIS_URL" BACKGROUND_JOBS=1 pm2 start .venv/bin/python --name cwfly-worker-py -- -m app.worker
 sleep 12
 for p in /health /api/auth/check-admin /whazzup.json; do
   printf '  %-26s ' "$p"

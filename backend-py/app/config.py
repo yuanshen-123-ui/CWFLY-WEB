@@ -64,6 +64,28 @@ class Settings(BaseSettings):
         return self.NODE_ENV == "production"
 
     @property
+    def cors_origins(self) -> list[str]:
+        """允许多个来源：显式配置的 CORS_ORIGIN + 生产主域名/裸域 + 本地开发地址。"""
+        items: list[str] = []
+        raw = (self.CORS_ORIGIN or "").strip()
+        if raw:
+            items.extend([x.strip() for x in raw.split(",") if x.strip()])
+        else:
+            items.append("https://www.cwflysim.cn")
+        # 生产同一站点的裸域（nginx server_name 同时包含 cwflysim.cn 与 www）
+        items.extend(["https://cwflysim.cn", "https://www.cwflysim.cn"])
+        if self.NODE_ENV != "production":
+            items.extend(["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"])
+        # 去重保序
+        seen: set[str] = set()
+        result: list[str] = []
+        for item in items:
+            if item not in seen:
+                seen.add(item)
+                result.append(item)
+        return result
+
+    @property
     def cors_origin(self) -> str:
         """与 Node 一致的 CORS 回退逻辑（生产不再回退到 localhost）。"""
         if self.CORS_ORIGIN:

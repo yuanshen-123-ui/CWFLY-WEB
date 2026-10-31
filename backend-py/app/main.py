@@ -124,7 +124,7 @@ app = FastAPI(
 # ---------- 中间件（注册顺序与 Node server.js 对应；Starlette 后注册的更靠外层） ----------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.cors_origin],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

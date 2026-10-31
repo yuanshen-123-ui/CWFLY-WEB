@@ -120,3 +120,10 @@ pm2 reload cwfly-api-py 2>/dev/null || pm2 restart cwfly-api-py 2>/dev/null
 
 > 说明：Site 端到端体验还受用户到服务器的网络 RTT 影响；本次改动把「服务端冷启动/重复请求」的等待基本消除，
 > 首屏数据请求由 1.7s 降到 0.1s 量级。若还慢，下一层优化点是前端资源体积（three.js/Charts 懒加载）与 CDN。
+
+### 生产环境变量（关键）
+- PM2 启动时显式注入 `NODE_ENV=production`（此前沿用 `.env` 的 development）：保证 Turnstile 在缺密钥时 fail-closed、
+  邮件走真实 SMTP 发送而不是开发模式日志；
+- `SOCKETIO_REDIS_URL=redis://127.0.0.1:6379/0`（API 与 worker 都要设置，天气共享缓存也依赖它）；
+- CORS/Socket.IO 允许来源：`https://www.cwflysim.cn` + `https://cwflysim.cn`（裸域）+ 开发地址（仅非生产），
+  修复了裸域用户 Socket.IO 被 engineio 以 `not an accepted origin` 拒绝导致的反复重连/卡顿。

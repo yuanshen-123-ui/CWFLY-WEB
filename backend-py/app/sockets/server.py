@@ -92,7 +92,7 @@ if _redis_url:
 sio = socketio.AsyncServer(
     client_manager=_client_manager,
     async_mode="asgi",
-    cors_allowed_origins=[settings.cors_origin],
+    cors_allowed_origins=settings.cors_origins,
     cors_credentials=True,
     logger=False,
     engineio_logger=False,
