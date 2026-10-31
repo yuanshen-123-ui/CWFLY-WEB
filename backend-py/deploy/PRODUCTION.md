@@ -160,6 +160,21 @@ pm2 reload cwfly-api-py 2>/dev/null || pm2 restart cwfly-api-py 2>/dev/null
 | CSP | 必须允许 `worker-src 'self' blob:;`（原先仅 `blob:` 会拦截 Worker）；已在主站/API vhost 更新 |
 | 失败策略 | 全静默：网络/超时/校验失败均退避重试（3~8s 随机），令牌 8 分钟静默续算 |
 
+**已强制接入的接口（2026-10-31）**：
+
+| 接口 | 原因 |
+|---|---|
+| `POST /api/verify/send` | 邮件验证码最易被刷（每条都有成本） |
+| `POST /api/auth/register` | 批量注册 / 刷号 |
+| `POST /api/auth/forgot-password` | 邮件轰炸、撞库辅助 |
+| `POST /api/auth/reset-password` | 验证码爆破 |
+
+未接入：`/auth/login`、`/auth/login-verify`（已有 IP/账号限流 + Turnstile，避免自动化客户端被误伤）。
+前端会在发送上述接口前**静默等待令牌最多 2.5s**（`waitForPowToken`），无任何 UI 提示；
+若浏览器禁用 Worker 等极端情况拿不到令牌，后端返回 403「人机验证未通过，请刷新页面后重试」。
+
+紧急回退：给 API 进程加环境变量 `POW_ENFORCE=0` 后重启，即可放行（不校验）。
+
 使用方式：在需要人机验证的路由上加上依赖：
 
 ```python

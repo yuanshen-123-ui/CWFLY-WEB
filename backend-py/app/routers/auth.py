@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.deps import AuthFailure, CurrentUser, get_current_user
+from app.routers.captcha import require_pow_token
 from app.middleware.rate_limit import login_limiter, register_limiter, sensitive_limiter
 from app.services import users
 from app.services.device_ban import is_device_banned
@@ -94,7 +95,10 @@ async def check_cid(cid: Optional[str] = None, db: AsyncSession = Depends(get_db
 
 
 # ============================ 注册 ============================
-@router.post("/register", dependencies=[Depends(register_limiter)])
+@router.post(
+    "/register",
+    dependencies=[Depends(register_limiter), Depends(require_pow_token)],
+)
 async def register(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     try:
         body = await request.json()
@@ -387,7 +391,10 @@ async def me(db: AsyncSession = Depends(get_db), current: CurrentUser = Depends(
 
 
 # ============================ 忘记密码 / 重置密码 ============================
-@router.post("/forgot-password", dependencies=[Depends(sensitive_limiter)])
+@router.post(
+    "/forgot-password",
+    dependencies=[Depends(sensitive_limiter), Depends(require_pow_token)],
+)
 async def forgot_password(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     try:
         body = await request.json()
@@ -409,7 +416,10 @@ async def forgot_password(request: Request, db: AsyncSession = Depends(get_db)) 
     return JSJSONResponse({"success": True, "message": "如果该邮箱已注册，验证码已发送到邮箱"})
 
 
-@router.post("/reset-password", dependencies=[Depends(sensitive_limiter)])
+@router.post(
+    "/reset-password",
+    dependencies=[Depends(sensitive_limiter), Depends(require_pow_token)],
+)
 async def reset_password(request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     try:
         body = await request.json()

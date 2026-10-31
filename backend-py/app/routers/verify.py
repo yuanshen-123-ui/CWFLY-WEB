@@ -35,6 +35,7 @@ from app.middleware.rate_limit import (
 )
 from app.services import users
 from app.services.mailer import generate_code, send_verify_code, store_code, verify_code
+from app.routers.captcha import require_pow_token
 from app.services.turnstile import verify_turnstile
 from app.utils.client import get_client_ip
 from app.utils.json_compat import JSJSONResponse
@@ -164,7 +165,10 @@ async def _json_body(request: Request) -> dict[str, Any]:
 
 
 # ==================== POST /send —— 发送邮箱验证码 ====================
-@router.post("/send", dependencies=[Depends(verify_limiter), Depends(code_fp_limiter)])
+@router.post(
+    "/send",
+    dependencies=[Depends(verify_limiter), Depends(code_fp_limiter), Depends(require_pow_token)],
+)
 async def send_code(request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
     """守卫链：IP 限流 → 设备指纹限流 → 60s 冷却(DB) → Turnstile → 邮箱占用 → 发信。
 

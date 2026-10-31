@@ -1,6 +1,9 @@
 import axios from 'axios'
 import { getDeviceFp } from '@/utils/deviceFp'
-import { applyPowHeader } from '@/utils/pow'
+import { applyPowHeader, getPowToken, waitForPowToken } from '@/utils/pow'
+
+// 需 PoW 的敏感接口（相对 baseURL /api）：验证码、注册、找回/重置密码
+const POW_ENFORCED = ['/verify/send', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
 import { isWithinActiveWindow } from '@/utils/jwt'
 import { showBanner, navigateToLoginAfterBanner } from '@/utils/banner'
 
@@ -11,7 +14,7 @@ const api = axios.create({
 })
 
 // 请求拦截器 —— 注入 token
-api.interceptors.request.use(config => {
+api.interceptors.request.use(async config => {
   const token = localStorage.getItem('cw_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   // 添加反爬虫标志
@@ -22,8 +25,12 @@ api.interceptors.request.use(config => {
   } catch {
     /* 指纹不可用时忽略，不影响请求 */
   }
-  // PoW 短期令牌（隐身旁路验证通过后才有；没有则不带该头）
+  // PoW：敏感接口发送前静默等待令牌（最多 2.5s，无任何 UI）
   try {
+    const url = String(config.url || '')
+    if (POW_ENFORCED.some((p) => url.startsWith(p)) && !getPowToken()) {
+      await waitForPowToken(2500)
+    }
     applyPowHeader(config.headers)
   } catch {
     /* 忽略 */

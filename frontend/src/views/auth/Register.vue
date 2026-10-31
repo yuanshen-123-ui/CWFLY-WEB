@@ -73,6 +73,7 @@
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
+import { waitForPowToken } from '@/utils/pow'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -378,9 +379,15 @@ async function sendEmailCode() {
   errors.email = ''
   sendingCode.value = true
   try {
+    // PoW：静默等待令牌（拿不到也照常发，由后端判定）
+    const powToken = await waitForPowToken(2500)
     const res = await fetch('/api/verify/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(powToken ? { 'X-PoW-Token': powToken } : {})
+    },
       body: JSON.stringify({ email: form.value.email, purpose: 'register', turnstileToken: turnstileToken.value })
     })
     const data = await res.json()

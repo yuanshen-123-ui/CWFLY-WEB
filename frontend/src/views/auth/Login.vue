@@ -63,6 +63,7 @@ import { ref, computed, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { authApi } from '@/api'
+import { waitForPowToken } from '@/utils/pow'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -168,9 +169,15 @@ async function sendLoginCode() {
       const ok = await waitTurnstileToken()
       if (!ok || !turnstileToken.value) { verifyErr.value = '人机验证未完成，请重试'; return }
     }
+    // PoW：静默等待令牌（拿不到也照常发，由后端判定）
+    const powToken = await waitForPowToken(2500)
     const res = await fetch('/api/verify/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(powToken ? { 'X-PoW-Token': powToken } : {})
+    },
       body: JSON.stringify({ email: verifyEmail.value, purpose: 'login', turnstileToken: turnstileToken.value })
     })
     const data = await res.json()

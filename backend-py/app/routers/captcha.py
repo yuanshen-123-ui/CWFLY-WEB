@@ -224,7 +224,12 @@ async def verify_challenge(request: Request) -> JSJSONResponse:
 
 
 async def require_pow_token(request: Request) -> dict[str, Any]:
-    """FastAPI 依赖：要求请求携带有效的 `X-PoW-Token`（PoW 通过后签发的短期 JWT）。"""
+    """FastAPI 依赖：要求请求携带有效的 `X-PoW-Token`（PoW 通过后签发的短期 JWT）。
+
+    可用环境变量 `POW_ENFORCE=0` 紧急关闭拦截（放行不校验）。
+    """
+    if os.getenv("POW_ENFORCE", "1").strip().lower() in ("0", "false", "no"):
+        return {}
     token = (request.headers.get(POW_TOKEN_HEADER) or "").strip()
     if not token:
         raise AuthFailure(403, "人机验证未通过，请刷新页面后重试")
