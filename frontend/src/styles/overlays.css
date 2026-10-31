@@ -1,0 +1,63 @@
+/* ============================================================
+   覆盖层：弹窗遮罩与过渡、表格排序指示、玻璃工具类
+   （拆分自 assets/global.css 第 595-653 行，内容未改动）
+   ============================================================ */
+
+/* ---------- 弹窗遮罩（全局默认，组件可覆盖） ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* ---------- 弹窗过渡（Vue Transition）：进入下滑渐显，关闭上滑渐隐，秒数一致 .3s ---------- */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity .3s ease;
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+.modal-enter-active .modal-card,
+.modal-enter-active .ban-modal {
+  animation: modalSlideDown .3s ease;
+}
+.modal-leave-active .modal-card,
+.modal-leave-active .ban-modal {
+  animation: modalSlideUp .3s ease;
+}
+@keyframes modalSlideDown {
+  from { opacity: 0; transform: translateY(-24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes modalSlideUp {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-24px); }
+}
+
+/* ---------- 表格排序（v-sort 指令）：表头指示 ---------- */
+th.sort-active { color: var(--c-primary, #0071e3) !important; }
+th[data-sort="asc"]::after { content: ' ▲'; font-size: 10px; }
+th[data-sort="desc"]::after { content: ' ▼'; font-size: 10px; }
+
+
+/* ---------- 玻璃工具类（Apple 风格） ---------- */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+}
+.glass-strong {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border-strong);
+}

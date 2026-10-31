@@ -1,0 +1,344 @@
+/* ============================================================
+   基础层：reset、排版、卡片、按钮、输入框、表格、badge、工具类、滚动条、动画
+   （拆分自 assets/global.css 第 143-482 行，内容未改动）
+   ============================================================ */
+
+/* ===== 全局禁用文本选中（应用型 UI，防止拖动误选文字）=====
+   作用：所有页面元素默认不可选中文字（user-select:none）。
+   豁免：输入框/文本域/可编辑元素仍可选中编辑文字，保证表单可用。
+   调用时机：全局生效，覆盖整个前端所有页面。 */
+*,
+*::before,
+*::after {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+input,
+textarea,
+select,
+[contenteditable="true"],
+[contenteditable="true"] * {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.47059;
+  color: var(--c-text);
+  /* 背景由 App.vue 的时段渐变层(.bg-time) / 自定义背景层(.custom-bg-layer)负责, 支持 3s 渐变显示 */
+  background: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* 确保所有内容都浮在背景图上 */
+#app {
+  min-height: 100vh;
+  background: transparent;
+}
+
+a { color: var(--c-primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.btn-xs { font-size:11px;padding:3px 8px;border-radius:5px; }
+
+/* ---------- 通用卡片（Apple 玻璃效果） ---------- */
+.card {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  /* 只过渡 hover 相关属性(阴影/位移)；背景/边框/文字颜色交给根元素 @property 变量统一渐变,
+     避免卡片自带过渡把主题切换的 1s 渐变"二次平滑"而落后于其它组件 */
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+.card--hover:hover {
+  box-shadow: var(--shadow-md);
+  background: rgba(255, 255, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+html[data-theme='dark'] .card--hover:hover {
+  background: rgba(28, 28, 30, 0.78);
+}
+
+/* ---------- 按钮（Apple 风格） ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 24px;
+  border-radius: 980px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-decoration: none;
+  line-height: 1.4;
+  letter-spacing: -.01em;
+}
+.btn:hover { text-decoration: none; }
+.btn-primary {
+  background: var(--c-primary);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--c-primary-dark);
+}
+.btn-outline {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  border-color: var(--glass-border);
+  color: var(--c-text);
+}
+.btn-outline:hover {
+  border-color: var(--c-primary);
+  color: var(--c-primary);
+  background: rgba(0, 113, 227, 0.1);
+}
+.btn-sm { padding: 6px 16px; font-size: 13px; }
+.btn-block { width: 100%; }
+
+/* ---------- 输入框（Apple 风格） ---------- */
+.input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--glass-border-strong);
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--c-text);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(12px) saturate(var(--glass-saturate));
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+.input::placeholder { color: var(--c-text-muted); }
+.input:focus {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3.5px rgba(0, 113, 227, 0.18);
+}
+.input[aria-invalid='true'] { border-color: var(--c-danger); }
+.input[aria-invalid='true']:focus {
+  border-color: var(--c-danger);
+  box-shadow: 0 0 0 3.5px rgba(255, 69, 58, 0.16);
+}
+.input-error { border-color: var(--c-danger); }
+textarea.input { min-height: 90px; resize: vertical; line-height: 1.55; }
+
+/* ---------- 下拉选择框（select）玻璃圆角、适配深浅色 ---------- */
+select.input,
+select:not([class]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--glass-bg-strong);
+  backdrop-filter: blur(16px) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(16px) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border-strong);
+  border-radius: 10px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px;
+  padding: 10px 32px 10px 14px;
+  color: var(--c-text);
+  cursor: pointer;
+  transition: border-color var(--transition), box-shadow var(--transition), background-color var(--transition);
+}
+select.input:focus,
+select:not([class]):focus {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+}
+/* 下拉选项列表：玻璃感背景 + 圆角 + 深浅色自适应 */
+select.input option,
+select:not([class]) option {
+  background-color: var(--glass-bg-strong);
+  color: var(--c-text);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+select.input option:hover,
+select:not([class]) option:hover {
+  background-color: var(--c-primary-light);
+  color: var(--c-primary);
+}
+
+/* ---------- 表格（Apple 风格） ---------- */
+.table-wrap { overflow-x: auto; }
+
+.card > .table-wrap:first-child {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+/* 卡片底部表格: 最后一行贴合圆角, 无间隔/无溢出(overflow-x:auto 会把内容裁剪进圆角) */
+.card > .table-wrap:last-child {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.card > .table-wrap:first-child:last-child {
+  border-radius: var(--radius-lg);
+}
+
+.table-wrap table {
+  table-layout: fixed;
+  width: 100%;
+}
+.table-wrap table th,
+.table-wrap table td {
+  width: 8%;
+}
+
+/* ===== 表格卡片：表格填满卡片宽度与高度（全出血） =====
+   仅当卡片直接包含 .table-wrap 时生效；不影响普通卡片 */
+.card:has(> .table-wrap) {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.card:has(> .table-wrap) > .table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  width: 100%;
+}
+/* 卡片内非表格元素（标题/操作栏等）保留内边距；底部收窄以缩小标题→表格间距 */
+.card:has(> .table-wrap) > :not(.table-wrap) {
+  padding: 16px 24px 8px;
+}
+/* 标题与表格间距：覆盖标题的 mb-md，进一步缩小 */
+.card:has(> .table-wrap) > :not(.table-wrap):first-child {
+  margin-bottom: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th, td {
+  padding: 14px 18px;
+  text-align: left;
+  border-bottom: 1px solid var(--glass-border);
+  font-size: 14px;
+  white-space: nowrap;
+}
+th {
+  font-weight: 600;
+  color: var(--c-text-secondary);
+  background: rgba(255,255,255,.25);
+  font-size: 12px;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,.15); }
+
+/* ---------- 权限 ---------- */
+.badge {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.badge-success { background: rgba(48,209,88,.15); color: #248a3d; border: 1px solid rgba(48,209,88,.25); }
+.badge-warning { background: rgba(255,159,10,.15); color: #b86500; border: 1px solid rgba(255,159,10,.25); }
+.badge-danger  { background: rgba(255,69,58,.15); color: #bf2d24; border: 1px solid rgba(255,69,58,.25); }
+.badge-info    { background: rgba(100,210,255,.15); color: #0077b5; border: 1px solid rgba(100,210,255,.25); }
+.badge-default { background: var(--glass-bg); color: var(--c-text-secondary); border: 1px solid var(--glass-border); }
+
+/* ---------- FSD权限 ---------- */
+.fsd-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 14px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.fsd-0 { background: var(--glass-bg); color: var(--c-text-secondary); border: 1px solid var(--glass-border); }
+.fsd-1 { background: rgba(23, 99, 0, 0.7); color: #00b350; border: 1px solid rgba(0, 255, 157, 0.4); }
+.fsd-2, .fsd-3, .fsd-4 { background: rgba(255, 170, 170, 0.4); color: #bf2d24; border: 1px solid rgba(255,69,58,.25); }
+.fsd-5, .fsd-6, .fsd-7 { background: rgba(250, 215, 161, 0.8); color: #b86500; border: 1px solid rgba(250, 159, 22, 0.5); }
+.fsd-8, .fsd-9, .fsd-10 { background: rgba(192, 87, 196, 0.4); color: #eca4fa; border: 1px solid rgba(195, 0, 255, 0.6); }
+.fsd-11 { background: rgba(184, 185, 75, 0.5); color: #fbff00; border: 1px solid rgba(255, 251, 0, 0.4); }
+.fsd-12 { background: rgba(0, 0, 0, 0.4); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.6); }
+.fsd-type-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.fsd-type-pilot { background: #e8f5e9; color: #2e7d32; }
+.fsd-type-atc { background: #fff3e0; color: #e65100; }
+.fsd-type-both { background: #e3f2fd; color: #1565c0; }
+
+/* ---------- 工具类 ---------- */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.gap-xs { gap: 4px; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 16px; }
+.gap-lg { gap: 24px; }
+.flex-1 { flex: 1; }
+.w-full { width: 100%; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-secondary { color: var(--c-text-secondary); }
+.text-muted { color: var(--c-text-muted); }
+.text-sm { font-size: 13px; }
+.text-xs { font-size: 12px; }
+.font-bold { font-weight: 600; }
+.mt-sm { margin-top: 8px; }
+.mt-md { margin-top: 16px; }
+.mt-lg { margin-top: 24px; }
+.mb-sm { margin-bottom: 8px; }
+.mb-md { margin-bottom: 16px; }
+.mb-lg { margin-bottom: 24px; }
+.p-sm { padding: 8px; }
+.p-md { padding: 16px; }
+.p-lg { padding: 24px; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 滚动条 ---------- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.25); }
+
+/* ---------- 页面标题（Apple 风格） ---------- */
+.page-header { margin-bottom: 28px; }
+.page-header h1 { font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
+.page-header p { color: var(--c-text-secondary); margin-top: 4px; font-size: 15px; }
+
+/* ---------- 动画 ---------- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn .35s ease both; }

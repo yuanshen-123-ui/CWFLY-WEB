@@ -12,6 +12,8 @@
   <!-- 用户自定义背景层（上传后 3s 渐变显示, 覆盖在时段背景层之上） -->
   <div class="custom-bg-layer" v-show="customBgActive" ref="customBgLayer" aria-hidden="true"></div>
   <router-view />
+  <!-- 全局回顶按钮（滚动 > 600px 显示，点击平滑回顶） -->
+  <FloatingButton />
   <!-- 全局红色横幅（错误 / 登录过期提示） -->
   <ToastBanner />
   <!-- 全局动作横幅（密码输入等控件，右侧滑入无进度条） -->
@@ -28,6 +30,9 @@ import { useUserStore } from '@/store/user'
 import { profileApi } from '@/api'
 import { getTimeBgState, getUpcomingBg } from '@/utils/timeBg'
 import { themeMode, isDarkTheme, scheduleApplyTheme } from '@/utils/theme'
+import FloatingButton from '@/components/FloatingButton.vue'
+// 动效层：主题圆形扩散 / reduced-motion 全站降级 / 回顶按钮过渡
+import '@/styles/motion.css'
 
 const onlineStore = useOnlineUsersStore()
 const user = useUserStore()

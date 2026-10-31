@@ -9,14 +9,27 @@
     </div>
 
     <div class="card p-lg">
-      <div v-for="p in posts" :key="p.id" class="post-item flex justify-between items-start p-md" @click="$router.push('/forum/post/' + p.id)">
-        <div class="flex-1">
-          <h4 class="font-bold text-sm">{{ p.title }} <span v-if="p.pinned" class="badge badge-warning text-xs">置顶</span></h4>
-          <p class="text-xs text-muted mt-sm">{{ p.userId }} · {{ formatTime(p.createdAt) }} · 浏览 {{ p.views || 0 }}</p>
-        </div>
-        <span class="text-xs text-muted">{{ p._replyCount || 0 }} 回复</span>
+      <!-- 加载态 Skeleton / 空态 EmptyState -->
+      <div v-if="loading" aria-busy="true" aria-label="正在加载帖子">
+        <Skeleton :lines="6" :height="16" />
       </div>
-      <div v-if="!posts.length" class="text-center text-muted p-md">暂无帖子</div>
+      <EmptyState
+        v-else-if="!posts.length"
+        icon="doc"
+        title="暂无帖子"
+        description="这个板块还没有讨论，来发第一帖吧。"
+        action-text="发新帖"
+        action-to="/forum/new"
+      />
+      <div v-else>
+        <div v-for="p in posts" :key="p.id" class="post-item flex justify-between items-start p-md" @click="$router.push('/forum/post/' + p.id)">
+          <div class="flex-1">
+            <h4 class="font-bold text-sm">{{ p.title }} <span v-if="p.pinned" class="badge badge-warning text-xs">置顶</span></h4>
+            <p class="text-xs text-muted mt-sm">{{ p.userId }} · {{ formatTime(p.createdAt) }} · 浏览 {{ p.views || 0 }}</p>
+          </div>
+          <span class="text-xs text-muted">{{ p._replyCount || 0 }} 回复</span>
+        </div>
+      </div>
     </div>
 
     <div class="flex justify-center gap-sm mt-md" v-if="total > 20">
@@ -31,12 +44,15 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/api'
+import EmptyState from '@/components/base/EmptyState.vue'
+import Skeleton from '@/components/base/Skeleton.vue'
 
 const route = useRoute()
 const board = ref(null)
 const posts = ref([])
 const page = ref(1)
 const total = ref(0)
+const loading = ref(false)
 
 onMounted(async () => {
   const boardId = route.params.boardId
@@ -49,11 +65,14 @@ onMounted(async () => {
 })
 
 async function load() {
+  loading.value = true
   try {
     const r = await api.get('/forum/posts', { params: { boardId: route.params.boardId, page: page.value } })
     posts.value = r.data?.items || []
     total.value = r.data?.total || 0
-  } catch {}
+  } catch {} finally {
+    loading.value = false
+  }
 }
 
 function formatTime(t) {

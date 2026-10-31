@@ -11,7 +11,10 @@
         <h2 style="margin:0;font-size:16px;">封禁管理</h2>
         <button class="btn btn-primary btn-sm" @click="openBanManager">管理封禁</button>
       </div>
-      <div v-if="bans.length" class="table-wrap">
+      <div v-if="bansLoading" class="p-md" aria-busy="true" aria-label="正在加载封禁记录">
+        <Skeleton :lines="4" :height="14" />
+      </div>
+      <div v-else-if="bans.length" class="table-wrap">
         <table v-sort="{ index: 5, desc: true }">
           <thead>
             <tr><th>IP</th><th>封禁用户</th><th>封禁人</th><th>原因</th><th>状态</th><th>时间</th></tr>
@@ -28,7 +31,7 @@
           </tbody>
         </table>
       </div>
-      <div v-else class="text-center text-muted p-md">暂无封禁记录</div>
+      <EmptyState v-else icon="shield" title="暂无封禁记录" description="当前没有生效中的 IP 封禁。" compact />
     </div>
 
     <!-- 网络管理 -->
@@ -37,7 +40,10 @@
         <h2 style="margin:0;font-size:16px;">网络管理</h2>
         <button class="btn btn-primary btn-sm" @click="openIpList">管理名单</button>
       </div>
-      <div v-if="ipGroupSummary.length" class="table-wrap">
+      <div v-if="groupsLoading" class="p-md" aria-busy="true" aria-label="正在加载网络名单">
+        <Skeleton :lines="4" :height="14" />
+      </div>
+      <div v-else-if="ipGroupSummary.length" class="table-wrap">
         <table v-sort>
           <thead>
             <tr><th>集合名称</th><th>类型</th><th>状态</th><th>IP 数</th><th>添加人</th><th>时间</th></tr>
@@ -54,133 +60,123 @@
           </tbody>
         </table>
       </div>
-      <div v-else class="text-center text-muted p-md">暂无集合</div>
+      <EmptyState v-else icon="globe" title="暂无集合" description="还没有 IP 黑白名单集合，点击「管理名单」创建。" compact />
     </div>
 
-    <!-- 封禁管理弹窗（毛玻璃） -->
-    <Teleport to="body">
-    <Transition name="modal">
-    <div v-if="showBanManager" class="ban-overlay" @click.self="closeBanManager">
-      <div class="ban-modal">
-        <h3 class="ban-title">封禁管理</h3>
-        <div class="ban-add">
-          <input v-model="newBanIp" class="input flex-1" placeholder="IP 或网段，如 1.2.3.4 / 1.2.3.0/24" />
-          <input v-model="newBanReason" class="input flex-1" placeholder="原因（可选）" />
-          <button class="btn btn-primary btn-sm" @click="addBan" :disabled="!newBanIp.trim()">添加封禁</button>
-        </div>
-        <div class="ban-list table-wrap">
-          <table v-sort="{ index: 5, desc: true }">
-            <thead>
-              <tr><th>IP</th><th>封禁用户</th><th>封禁人</th><th>原因</th><th>状态</th><th>时间</th><th>操作</th></tr>
-            </thead>
-            <tbody>
-              <tr v-for="b in bans" :key="b.id" :class="{ 'ban-edit-row': editingId === b.id }">
-                <template v-if="editingId === b.id">
-                  <td><input ref="editIpInput" v-model="editIp" class="input font-mono" style="min-width:120px;" placeholder="IP 或网段" @blur="onEditBlur" @keyup.enter="saveEdit" /></td>
-                  <td><input v-model="editUser" class="input font-mono" style="min-width:100px;" placeholder="用户 CID" @blur="onEditBlur" @keyup.enter="saveEdit" /></td>
-                  <td>{{ b.bannedBy || '-' }}</td>
-                  <td><input v-model="editReason" class="input" style="min-width:120px;" placeholder="原因" @blur="onEditBlur" @keyup.enter="saveEdit" /></td>
-                  <td><span class="badge" :class="b.active ? 'badge-danger' : 'badge-default'">{{ b.active ? '生效中' : '已禁用' }}</span></td>
-                  <td class="text-sm">{{ b.createdAt }}</td>
-                  <td class="text-muted text-sm">点击空白处保存</td>
-                </template>
-                <template v-else>
-                  <td class="font-mono" style="cursor:pointer;" title="双击修改" @dblclick="startEdit(b)">{{ b.ip }}</td>
-                  <td style="cursor:pointer;" title="双击修改" @dblclick="startEdit(b)">{{ b.bannedUser || (b.bannedUserCids || []).join('、') || '-' }}</td>
-                  <td>{{ b.bannedBy || '-' }}</td>
-                  <td style="cursor:pointer;" title="双击修改" @dblclick="startEdit(b)">{{ b.reason || '-' }}</td>
-                  <td><span class="badge" :class="b.active ? 'badge-danger' : 'badge-default'">{{ b.active ? '生效中' : '已禁用' }}</span></td>
-                  <td class="text-sm">{{ b.createdAt }}</td>
-                  <td><button class="btn btn-outline btn-sm" style="color:var(--c-danger);" @click="delBan(b)">删除</button></td>
-                </template>
-              </tr>
-              <tr v-if="!bans.length"><td colspan="6" class="text-center text-muted">暂无封禁记录</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="ban-actions">
-          <button class="btn btn-outline" @click="closeBanManager">关闭</button>
-        </div>
+    <!-- 封禁管理弹窗：AppModal 统一 Teleport / Esc / 焦点迁移与还原 / 滚动锁 -->
+    <AppModal v-model:open="showBanManager" title="封禁管理" width="720px">
+      <div class="ban-add">
+        <input v-model="newBanIp" class="input flex-1" placeholder="IP 或网段，如 1.2.3.4 / 1.2.3.0/24" />
+        <input v-model="newBanReason" class="input flex-1" placeholder="原因（可选）" />
+        <button class="btn btn-primary btn-sm" @click="addBan" :disabled="!newBanIp.trim()">添加封禁</button>
       </div>
-    </div>
-    </Transition>
-    </Teleport>
-
-    <!-- 网络管理弹窗（集合模式，毛玻璃） -->
-    <Teleport to="body">
-    <Transition name="modal">
-    <div v-if="showIpList" class="ban-overlay" @click.self="closeIpList">
-      <div class="ban-modal">
-        <h3 class="ban-title">网络管理</h3>
-        <!-- 添加集合 -->
-        <div class="ban-add">
-          <input v-model="newGroupName" class="input" style="flex:1;" placeholder="集合名称" />
-          <SelectMenu v-model="newGroupType" :options="[{ value: 'black', label: '黑名单' }, { value: 'white', label: '白名单' }]" style="max-width:110px;" />
-          <button class="btn btn-primary btn-sm" @click="addIpGroup" :disabled="!newGroupName.trim()">添加集合</button>
-          <button class="btn btn-outline btn-sm" title="导入 txt 文件到指定集合" @click="pickIpFile">导入 txt</button>
-          <input ref="ipFileInput" type="file" accept=".txt,text/plain" style="display:none;" @change="onIpFileChange" />
-        </div>
-        <!-- 导入确认：选择目标集合 -->
-        <div v-if="importPending" class="ip-import-panel">
-          <div class="ip-import-title">已解析到 {{ importItems.length }} 条 IP，请选择要添加到的集合：</div>
-          <div class="ip-import-row">
-            <SelectMenu v-model="importGroupId" :options="[ipGroups.map((g) => ({ value: g.id, label: `${g.name || ('集合#' + g.id)}（${g.type === 'white' ? '白名单' : '黑名单'}）` })), { value: -1, label: '＋ 新建集合' }]" style="flex:1;" />
-            <template v-if="importGroupId === -1">
-              <input v-model="importNewName" class="input" style="flex:1;" placeholder="新集合名称" />
-              <SelectMenu v-model="importNewType" :options="[{ value: 'black', label: '黑名单' }, { value: 'white', label: '白名单' }]" style="max-width:110px;" />
-            </template>
-            <button class="btn btn-primary btn-sm" @click="confirmImport" :disabled="importLoading || (importGroupId === -1 && !importNewName.trim())">
-              <span v-if="importLoading" class="ip-spinner" aria-hidden="true"></span>{{ importLoading ? '正在导入…' : '确认导入' }}
-            </button>
-            <button class="btn btn-outline btn-sm" @click="cancelImport">取消</button>
-          </div>
-        </div>
-        <!-- 集合列表 -->
-        <div class="ip-groups">
-          <div v-for="g in ipGroups" :key="g.id" class="ip-group">
-            <div class="ip-group-head">
-              <button class="ip-group-caret" :title="isGroupExpanded(g) ? '收起' : '展开'" @click="toggleGroupExpand(g)">{{ isGroupExpanded(g) ? '▾' : '▸' }}</button>
-              <template v-if="groupEditId === g.id">
-                <input v-model="groupEditName" class="input" style="flex:1;min-width:120px;" @keyup.enter="saveGroupEdit(g)" @blur="saveGroupEdit(g)" />
+      <div v-if="bans.length" class="table-wrap">
+        <table v-sort="{ index: 5, desc: true }">
+          <thead>
+            <tr><th>IP</th><th>封禁用户</th><th>封禁人</th><th>原因</th><th>状态</th><th>时间</th><th>操作</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="b in bans" :key="b.id" :class="{ 'ban-edit-row': editingId === b.id }">
+              <template v-if="editingId === b.id">
+                <td><input ref="editIpInput" v-model="editIp" class="input font-mono" style="min-width:120px;" placeholder="IP 或网段" @blur="onEditBlur" @keyup.enter="saveEdit" /></td>
+                <td><input v-model="editUser" class="input font-mono" style="min-width:100px;" placeholder="用户 CID" @blur="onEditBlur" @keyup.enter="saveEdit" /></td>
+                <td>{{ b.bannedBy || '-' }}</td>
+                <td><input v-model="editReason" class="input" style="min-width:120px;" placeholder="原因" @blur="onEditBlur" @keyup.enter="saveEdit" /></td>
+                <td><span class="badge" :class="b.active ? 'badge-danger' : 'badge-default'">{{ b.active ? '生效中' : '已禁用' }}</span></td>
+                <td class="text-sm">{{ b.createdAt }}</td>
+                <td class="text-muted text-sm">点击空白处保存</td>
               </template>
               <template v-else>
-                <span class="ip-group-name" title="双击改名" @dblclick="startGroupEdit(g)">{{ g.name || ('集合#' + g.id) }}</span>
+                <td class="font-mono" style="cursor:pointer;" title="双击修改" @dblclick="startEdit(b)">{{ b.ip }}</td>
+                <td style="cursor:pointer;" title="双击修改" @dblclick="startEdit(b)">{{ b.bannedUser || (b.bannedUserCids || []).join('、') || '-' }}</td>
+                <td>{{ b.bannedBy || '-' }}</td>
+                <td style="cursor:pointer;" title="双击修改" @dblclick="startEdit(b)">{{ b.reason || '-' }}</td>
+                <td><span class="badge" :class="b.active ? 'badge-danger' : 'badge-default'">{{ b.active ? '生效中' : '已禁用' }}</span></td>
+                <td class="text-sm">{{ b.createdAt }}</td>
+                <td><button class="btn btn-outline btn-sm" style="color:var(--c-danger);" @click="delBan(b)">删除</button></td>
               </template>
-              <span class="badge" :class="g.type === 'white' ? 'badge-success' : 'badge-danger'" style="cursor:pointer;" title="双击切换类型" @dblclick="toggleGroupType(g)">{{ g.type === 'white' ? '白名单' : '黑名单' }}</span>
-              <span class="badge" :class="g.active ? 'badge-info' : 'badge-default'" style="cursor:pointer;" title="点击切换状态" @click="toggleIpGroup(g)">{{ g.active ? '启用' : '停用' }}</span>
-              <span class="text-muted text-sm">添加人 {{ g.addedBy || '-' }}</span>
-              <span class="text-muted text-sm">{{ g.createdAt }}</span>
-              <span class="ip-group-count">{{ (g.members || []).length }} 条</span>
-              <button class="btn btn-outline btn-sm" style="color:var(--c-danger);" @click="delIpGroup(g)">删除集合</button>
-            </div>
-            <div v-if="isGroupExpanded(g)" class="ip-group-members">
-              <div v-for="m in g.members" :key="m.id" class="ip-member">
-                <span class="font-mono">{{ m.ip }}</span>
-                <button class="ip-member-del" title="移除该 IP" @click="delMember(g, m)">×</button>
-              </div>
-              <div v-if="addTargetId === g.id" class="ip-member-add">
-                <input ref="memberAddInput" v-model="memberAddIp" class="input font-mono" style="flex:1;" placeholder="输入 IP 或网段后回车" @keyup.enter="addMember(g)" @blur="cancelMemberAdd" />
-              </div>
-              <div v-else class="ip-member-add-placeholder" title="双击在此集合添加 IP" @dblclick="startMemberAdd(g)">＋ 双击此空白行添加 IP</div>
-            </div>
-          </div>
-          <div v-if="!ipGroups.length" class="text-center text-muted p-md">暂无集合，请先在上方添加集合</div>
-        </div>
-        <div class="ban-actions">
-          <button class="btn btn-outline" @click="closeIpList">关闭</button>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <EmptyState v-else icon="shield" title="暂无封禁记录" compact />
+      <template #footer>
+        <button class="btn btn-outline" @click="closeBanManager">关闭</button>
+      </template>
+    </AppModal>
+
+    <!-- 网络管理弹窗（集合模式）：AppModal 统一外壳 -->
+    <AppModal v-model:open="showIpList" title="网络管理" width="720px">
+      <!-- 添加集合 -->
+      <div class="ban-add">
+        <input v-model="newGroupName" class="input" style="flex:1;" placeholder="集合名称" />
+        <SelectMenu v-model="newGroupType" :options="[{ value: 'black', label: '黑名单' }, { value: 'white', label: '白名单' }]" style="max-width:110px;" />
+        <button class="btn btn-primary btn-sm" @click="addIpGroup" :disabled="!newGroupName.trim()">添加集合</button>
+        <button class="btn btn-outline btn-sm" title="导入 txt 文件到指定集合" @click="pickIpFile">导入 txt</button>
+        <input ref="ipFileInput" type="file" accept=".txt,text/plain" style="display:none;" @change="onIpFileChange" />
+      </div>
+      <!-- 导入确认：选择目标集合 -->
+      <div v-if="importPending" class="ip-import-panel">
+        <div class="ip-import-title">已解析到 {{ importItems.length }} 条 IP，请选择要添加到的集合：</div>
+        <div class="ip-import-row">
+          <SelectMenu v-model="importGroupId" :options="[ipGroups.map((g) => ({ value: g.id, label: `${g.name || ('集合#' + g.id)}（${g.type === 'white' ? '白名单' : '黑名单'}）` })), { value: -1, label: '＋ 新建集合' }]" style="flex:1;" />
+          <template v-if="importGroupId === -1">
+            <input v-model="importNewName" class="input" style="flex:1;" placeholder="新集合名称" />
+            <SelectMenu v-model="importNewType" :options="[{ value: 'black', label: '黑名单' }, { value: 'white', label: '白名单' }]" style="max-width:110px;" />
+          </template>
+          <button class="btn btn-primary btn-sm" @click="confirmImport" :disabled="importLoading || (importGroupId === -1 && !importNewName.trim())">
+            <span v-if="importLoading" class="ip-spinner" aria-hidden="true"></span>{{ importLoading ? '正在导入…' : '确认导入' }}
+          </button>
+          <button class="btn btn-outline btn-sm" @click="cancelImport">取消</button>
         </div>
       </div>
-    </div>
-    </Transition>
-    </Teleport>
+      <!-- 集合列表 -->
+      <div class="ip-groups">
+        <div v-for="g in ipGroups" :key="g.id" class="ip-group">
+          <div class="ip-group-head">
+            <button class="ip-group-caret" :title="isGroupExpanded(g) ? '收起' : '展开'" @click="toggleGroupExpand(g)">{{ isGroupExpanded(g) ? '▾' : '▸' }}</button>
+            <template v-if="groupEditId === g.id">
+              <input v-model="groupEditName" class="input" style="flex:1;min-width:120px;" @keyup.enter="saveGroupEdit(g)" @blur="saveGroupEdit(g)" />
+            </template>
+            <template v-else>
+              <span class="ip-group-name" title="双击改名" @dblclick="startGroupEdit(g)">{{ g.name || ('集合#' + g.id) }}</span>
+            </template>
+            <span class="badge" :class="g.type === 'white' ? 'badge-success' : 'badge-danger'" style="cursor:pointer;" title="双击切换类型" @dblclick="toggleGroupType(g)">{{ g.type === 'white' ? '白名单' : '黑名单' }}</span>
+            <span class="badge" :class="g.active ? 'badge-info' : 'badge-default'" style="cursor:pointer;" title="点击切换状态" @click="toggleIpGroup(g)">{{ g.active ? '启用' : '停用' }}</span>
+            <span class="text-muted text-sm">添加人 {{ g.addedBy || '-' }}</span>
+            <span class="text-muted text-sm">{{ g.createdAt }}</span>
+            <span class="ip-group-count">{{ (g.members || []).length }} 条</span>
+            <button class="btn btn-outline btn-sm" style="color:var(--c-danger);" @click="delIpGroup(g)">删除集合</button>
+          </div>
+          <div v-if="isGroupExpanded(g)" class="ip-group-members">
+            <div v-for="m in g.members" :key="m.id" class="ip-member">
+              <span class="font-mono">{{ m.ip }}</span>
+              <button class="ip-member-del" title="移除该 IP" @click="delMember(g, m)">×</button>
+            </div>
+            <div v-if="addTargetId === g.id" class="ip-member-add">
+              <input ref="memberAddInput" v-model="memberAddIp" class="input font-mono" style="flex:1;" placeholder="输入 IP 或网段后回车" @keyup.enter="addMember(g)" @blur="cancelMemberAdd" />
+            </div>
+            <div v-else class="ip-member-add-placeholder" title="双击在此集合添加 IP" @dblclick="startMemberAdd(g)">＋ 双击此空白行添加 IP</div>
+          </div>
+        </div>
+      </div>
+      <EmptyState v-if="!ipGroups.length" icon="globe" title="暂无集合" description="请先在上方添加一个 IP 集合。" compact />
+      <template #footer>
+        <button class="btn btn-outline" @click="closeIpList">关闭</button>
+      </template>
+    </AppModal>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 import { adminApi } from '@/api'
+import AppModal from '@/components/base/AppModal.vue'
+import EmptyState from '@/components/base/EmptyState.vue'
+import Skeleton from '@/components/base/Skeleton.vue'
 
 const bans = ref([])
+const bansLoading = ref(false)
 const showBanManager = ref(false)
 const newBanIp = ref('')
 const newBanReason = ref('')
@@ -195,6 +191,7 @@ const editIpInput = ref(null)
 // ===== 网络管理（IP 集合：一组 IP 组成一个集合） =====
 const ipGroups = ref([])          // 完整集合（含成员），仅打开弹窗时加载
 const ipGroupSummary = ref([])    // 集合概览（不含成员明细），主卡片展示
+const groupsLoading = ref(false)
 const showIpList = ref(false)
 const newGroupName = ref('')
 const newGroupType = ref('black')
@@ -219,7 +216,10 @@ const expandedMap = ref({})
 onMounted(() => { loadBans(); loadIpGroupSummary() })
 
 async function loadBans() {
-  try { const r = await adminApi.ipBans(); bans.value = r.data || [] } catch {}
+  bansLoading.value = true
+  try { const r = await adminApi.ipBans(); bans.value = r.data || [] } catch {} finally {
+    bansLoading.value = false
+  }
 }
 
 function openBanManager() {
@@ -314,7 +314,10 @@ function onEditBlur() {
  * 调用时机：页面加载 / 增删改集合后刷新主卡片时触发。
  */
 async function loadIpGroupSummary() {
-  try { const r = await adminApi.ipGroupSummary(); ipGroupSummary.value = r.data || [] } catch { /* ignore */ }
+  groupsLoading.value = true
+  try { const r = await adminApi.ipGroupSummary(); ipGroupSummary.value = r.data || [] } catch { /* ignore */ } finally {
+    groupsLoading.value = false
+  }
 }
 
 /**
@@ -576,44 +579,13 @@ async function confirmImport() {
 .admin-config .card + .card {
   margin-top: 20px;
 }
-/* 封禁管理弹窗：毛玻璃 + 从上往下渐显 */
-.ban-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-}
-.ban-modal {
-  width: 720px;
-  max-width: calc(100vw - 32px);
-  max-height: 88vh;
-  overflow-y: auto;
-  padding: 24px 28px;
-  border-radius: 20px;
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border-strong);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
-}
-.ban-title {
-  margin: 0 0 18px;
-  font-size: 18px;
-  font-weight: 600;
-}
+/* 弹窗外壳（遮罩/卡片/标题/底部按钮）由 base/AppModal.vue 提供，这里只保留内容排版 */
 .ban-add {
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
 }
-.ban-list {
-  max-height: 380px;
-  overflow-y: auto;
-}
-/* 表格列宽：指定列设百分比，其余按内容自适应（覆盖全局 fixed 等宽布局） */
+/* 弹窗内表格列宽：指定列设百分比，其余按内容自适应（覆盖全局 fixed 等宽布局） */
 .table-wrap table {
   table-layout: auto;
   width: 100%;
@@ -631,11 +603,6 @@ async function confirmImport() {
 .table-wrap table td:nth-child(4) { width: 15%; }
 .table-wrap table th:nth-child(5),
 .table-wrap table td:nth-child(5) { width: 5%; }
-.ban-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
 /* 网络管理列表列宽：IP 30%、添加人 12%、类型 12%、状态 10%、时间 16% */
 .net-list table th:nth-child(1),
 .net-list table td:nth-child(1) { width: 30%; }
@@ -647,13 +614,11 @@ async function confirmImport() {
 .net-list table td:nth-child(4) { width: 10%; }
 .net-list table th:nth-child(5),
 .net-list table td:nth-child(5) { width: 16%; }
-/* 网络管理：集合卡片 */
+/* 网络管理：集合卡片（高度交给 AppModal 内容区滚动，避免弹窗内二次滚动） */
 .ip-groups {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 420px;
-  overflow-y: auto;
   margin-top: 4px;
 }
 .ip-group {

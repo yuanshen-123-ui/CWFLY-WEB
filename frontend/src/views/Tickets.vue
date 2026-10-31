@@ -44,7 +44,20 @@
       <div class="p-md" style="border-bottom:1px solid var(--c-border-light);">
         <h3 class="font-bold">我的工单</h3>
       </div>
-      <div class="table-wrap">
+      <!-- 加载态 Skeleton / 空态 EmptyState；表格仅在数据就绪时渲染 -->
+      <div v-if="loading" class="p-lg" aria-busy="true" aria-label="正在加载我的工单">
+        <Skeleton :lines="5" :height="16" />
+      </div>
+      <div v-else-if="!list.length" class="p-md">
+        <EmptyState
+          icon="ticket"
+          title="暂无工单"
+          description="提交工单后可以在这里跟踪处理进度。"
+          action-text="+ 新建工单"
+          @action="showForm = true"
+        />
+      </div>
+      <div v-else class="table-wrap">
         <table v-sort>
           <thead>
             <tr>
@@ -67,9 +80,6 @@
               <td class="text-sm text-muted" style="max-width:200px;">{{ t.reply || '等待回复' }}</td>
               <td class="text-muted text-sm">{{ t.createdAt }}</td>
             </tr>
-            <tr v-if="!list.length">
-              <td colspan="7" class="text-center text-muted">暂无工单</td>
-            </tr>
           </tbody>
         </table>
       </div>
@@ -80,8 +90,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ticketApi } from '@/api'
+import EmptyState from '@/components/base/EmptyState.vue'
+import Skeleton from '@/components/base/Skeleton.vue'
 
 const list = ref([])
+const loading = ref(false)
 const showForm = ref(false)
 const submitting = ref(false)
 const form = ref({
@@ -106,10 +119,13 @@ function categoryLabel(c) {
 }
 
 onMounted(async () => {
+  loading.value = true
   try {
     const res = await ticketApi.list()
     list.value = res.data
-  } catch { /* ignore */ }
+  } catch { /* ignore */ } finally {
+    loading.value = false
+  }
 })
 
 function resetForm() {

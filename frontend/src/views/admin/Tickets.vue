@@ -11,7 +11,14 @@
     </div>
 
     <div class="card">
-      <div class="table-wrap">
+      <!-- 加载态 Skeleton / 空态 EmptyState，表格仅在数据就绪时渲染 -->
+      <div v-if="loading" class="p-lg" aria-busy="true" aria-label="正在加载工单列表">
+        <Skeleton :lines="6" :height="16" />
+      </div>
+      <div v-else-if="!list.length" class="p-md">
+        <EmptyState icon="ticket" title="暂无工单" description="当前筛选条件下没有工单，用户提交后会出现在这里。" />
+      </div>
+      <div v-else class="table-wrap">
         <table v-sort="{ index: 8, desc: true }">
           <thead>
             <tr>
@@ -52,23 +59,24 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="!list.length">
-              <td colspan="10" class="text-center text-muted">暂无工单</td>
-            </tr>
           </tbody>
         </table>
       </div>
-      <div v-if="total > pageSize" class="flex justify-center gap-sm p-md" style="border-top:1px solid var(--c-border-light);">
+      <div v-if="!loading && list.length && total > pageSize" class="flex justify-center gap-sm p-md" style="border-top:1px solid var(--c-border-light);">
         <button class="btn btn-outline btn-sm" :disabled="page <= 1" @click="page--;load()">上一页</button>
         <span class="text-sm text-muted" style="display:flex;align-items:center;">第 {{ page }} / {{ maxPage }} 页</span>
         <button class="btn btn-outline btn-sm" :disabled="page >= maxPage" @click="page++;load()">下一页</button>
       </div>
     </div>
 
-    <!-- 回复对话框 -->
-    <div v-if="replyTarget" class="modal-overlay" @click.self="replyTarget=null">
-      <div class="modal card p-lg">
-        <h3 class="mb-md">回复工单 #{{ replyTarget.id }} - {{ replyTarget.title }}</h3>
+    <!-- 回复对话框：AppModal 统一 Teleport / Esc / 焦点迁移与还原 / 滚动锁 -->
+    <AppModal
+      :open="!!replyTarget"
+      :title="replyTarget ? `回复工单 #${replyTarget.id} - ${replyTarget.title}` : '回复工单'"
+      width="560px"
+      @update:open="(v) => { if (!v) closeReply() }"
+    >
+      <template v-if="replyTarget">
         <div class="mb-md">
           <label class="text-sm font-bold mb-sm" style="display:block;">回复内容</label>
           <textarea v-model="replyText" class="input" rows="4" placeholder="输入回复内容..." style="resize:vertical;"></textarea>
@@ -77,20 +85,24 @@
           <label class="text-sm font-bold mb-sm" style="display:block;">负责人</label>
           <SelectMenu v-model="replyAssignee" :options="staffList.map((s) => ({ value: s.name, label: `${s.name} (${s.department})` }))" placeholder="-- 请选择负责人 --" />
         </div>
-        <div class="flex gap-sm">
-          <button class="btn btn-primary" @click="submitReply">提交回复</button>
-          <button class="btn btn-outline" @click="replyTarget=null">取消</button>
-        </div>
-      </div>
-    </div>
+      </template>
+      <template #footer>
+        <button class="btn btn-outline" @click="closeReply">取消</button>
+        <button class="btn btn-primary" @click="submitReply">提交回复</button>
+      </template>
+    </AppModal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { adminApi } from '@/api'
+import AppModal from '@/components/base/AppModal.vue'
+import EmptyState from '@/components/base/EmptyState.vue'
+import Skeleton from '@/components/base/Skeleton.vue'
 
 const list = ref([])
+const loading = ref(false)
 const total = ref(0)
 const page = ref(1)
 const pageSize = 20
@@ -138,6 +150,7 @@ async function loadStaff() {
 }
 
 async function load() {
+  loading.value = true
   try {
     const params = { page: page.value, pageSize }
     if (filterStatus.value) params.status = filterStatus.value
@@ -145,7 +158,9 @@ async function load() {
     list.value = res.data.items
     total.value = res.data.total
     sortTickets()
-  } catch { /* ignore */ }
+  } catch { /* ignore */ } finally {
+    loading.value = false
+  }
 }
 
 function startEdit(t) {
@@ -165,6 +180,10 @@ function openReply(t) {
   replyTarget.value = t
   replyText.value = t.reply || ''
   replyAssignee.value = t.assignee || ''
+}
+
+function closeReply() {
+  replyTarget.value = null
 }
 
 async function submitReply() {
@@ -206,19 +225,3 @@ function sortTickets() {
   })
 }
 </script>
-
-<style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.modal {
-  width: 560px;
-  max-width: 90vw;
-}
-</style>

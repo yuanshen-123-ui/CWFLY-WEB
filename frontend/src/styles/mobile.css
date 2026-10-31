@@ -1,0 +1,116 @@
+/* ============================================================
+   移动端适配：≤1024 / ≤768 / ≤480 断点
+   （拆分自 assets/global.css 第 483-594 行，内容未改动）
+   ============================================================ */
+
+/* ---------- 全站自适应（手机/平板/桌面） ---------- */
+
+/* 小桌面 / 平板横屏 ≤1024px */
+@media (max-width: 1024px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr) !important; }
+  :root { --sidebar-w: 200px; }
+  .charts-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .route-grid { grid-template-columns: 1fr 1fr !important; }
+  .weather-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* 平板竖屏 ≤768px */
+@media (max-width: 768px) {
+  .page-header h1 { font-size: 22px; }
+  .page-header p { font-size: 14px; }
+  .stats-row { grid-template-columns: repeat(2, 1fr) !important; }
+  .stats-row .stat-block { padding: 16px; }
+  .stat-num { font-size: 26px; }
+
+  /* 顶栏 */
+  .app-header__inner { padding: 0 12px; }
+  .app-header__menu-btn { display: flex !important; }
+  .app-header__center { display: none; }
+  .header-icon-btn { width: 30px; height: 30px; }
+  .app-header__actions { gap: 6px; }
+
+  /* 侧边栏 → 覆盖层模式 */
+  .sidebar-overlay {
+    display: block !important;
+    position: fixed; inset: 0; top: var(--header-h);
+    background: rgba(0,0,0,.3); z-index: 899;
+    opacity: 0; pointer-events: none; transition: opacity .3s;
+  }
+  .sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
+
+  /* 内容区 */
+  .app-content { padding: 0 !important; }
+  .app-content__inner { padding: 16px !important; }
+
+  /* 表单响应式 */
+  [class*="form-row"] { flex-direction: column !important; }
+  [class*="form-col"] { width: 100% !important; }
+  .flex.gap-sm.items-center.flex-wrap { flex-direction: column; align-items: stretch !important; }
+  .flex.gap-sm.items-center.flex-wrap > * { width: 100% !important; min-width: 0 !important; }
+
+  /* 表格 → 水平滚动 */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-wrap table { min-width: 600px; }
+
+  /* 模态框全宽 */
+  .modal { width: 95vw !important; }
+
+  /* 网格布局降级 */
+  .charts-grid { grid-template-columns: 1fr !important; }
+  .route-grid { grid-template-columns: 1fr !important; }
+  .weather-grid { grid-template-columns: 1fr 1fr !important; }
+  .admin-grid { grid-template-columns: 1fr !important; }
+
+  /* 卡片内边距压缩 */
+  .card.p-lg { padding: 16px !important; }
+
+  /* 航图居中显示适配 */
+  .charts-grid .card.p-md { max-width: 100% !important; }
+
+  /* 分类标签滚动 */
+  .chart-tabs { overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .chart-tab { flex-shrink: 0; }
+}
+
+/* 手机竖屏 ≤480px */
+@media (max-width: 480px) {
+  .stats-row { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .page-header { margin-bottom: 16px; }
+  .page-header h1 { font-size: 18px; }
+  .page-header p { font-size: 13px; }
+  .stats-row .stat-block { padding: 12px; }
+  .stat-num { font-size: 22px; }
+  .app-header__brand .brand-text { display: none; }
+  .app-header__actions { gap: 4px; }
+  .brand-logo { width: 24px; height: 24px; }
+
+  /* 按钮全宽 */
+  .btn-block-mobile { width: 100%; justify-content: center; }
+
+  /* 天气网格单列 */
+  .weather-grid { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .weather-grid .weather-item { padding: 8px; }
+
+  /* 搜索/输入框 */
+  .input, .btn { font-size: 16px !important; } /* 防止 iOS 缩放 */
+
+  /* 隐藏非关键元素 */
+  .hide-mobile { display: none !important; }
+
+  /* 更紧凑的间距 */
+  .mt-md { margin-top: 12px !important; }
+  .mb-md { margin-bottom: 12px !important; }
+  .p-lg { padding: 12px !important; }
+  .p-md { padding: 10px !important; }
+
+  /* 表格字号缩小 */
+  .table-wrap table { font-size: 12px; }
+  .table-wrap th, .table-wrap td { padding: 8px 6px; }
+
+  /* 导航标签字号 */
+  .nav-item { padding: 8px 12px !important; font-size: 13px; }
+  .nav-group-title { padding: 10px 12px !important; }
+
+  /* 预览弹窗适配 */
+  .modal-overlay .btn { font-size: 13px !important; }
+}

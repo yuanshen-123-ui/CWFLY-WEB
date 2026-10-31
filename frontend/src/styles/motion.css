@@ -1,0 +1,158 @@
+/* ============================================================
+   motion.css — 动效层
+   - 1) 主题切换：View Transitions API 圆形扩散（从点击点向外铺开）
+   - 2) 动效降级：prefers-reduced-motion: reduce 全站兜底
+   - 3) 回顶按钮（FloatingButton）显隐过渡
+
+   JS 入口：
+   - utils/theme.js  ->  applyThemeWithTransition(x, y)   主题圆形扩散
+   - components/FloatingButton.vue                        滚动回顶
+
+   依赖约定（theme.js 写入 html 行内自定义属性）：
+   --theme-x / --theme-y  扩散圆心（px，一般=点击事件 clientX/clientY）
+   --theme-r              扩散半径（px，覆盖到视口最远角）
+   --theme-dur            动画时长（ms，与 theme.js 的 THEME_TRANSITION_MS 同步）
+   ============================================================ */
+
+/* ============================================================
+   1) 主题切换圆形扩散
+   思路：关闭 View Transitions 默认的「新旧快照整页交叉淡入」,
+        只让「新快照」以圆形 clip-path 从点击点扩散, 旧快照保持静止,
+        视觉即「新主题从按钮处向外铺开」。
+   生效条件：html.theme-transitioning（theme.js 在动画期间加、结束/异常时必摘）
+   ============================================================ */
+
+@supports (view-transition-name: none) {
+  /* 容器组不做任何动画（默认会做根元素尺寸/位置过渡） */
+  html.theme-transitioning::view-transition-group(root) {
+    animation: none !important;
+  }
+
+  /* 关闭默认交叉淡入：旧快照保持原样垫底 */
+  html.theme-transitioning::view-transition-old(root) {
+    animation: none !important;
+    mix-blend-mode: normal;
+    z-index: 1;
+  }
+
+  /* 新快照：从点击点 0 半径扩散到覆盖全视口 */
+  html.theme-transitioning::view-transition-new(root) {
+    animation: cw-theme-circle-reveal var(--theme-dur, 640ms) cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+    mix-blend-mode: normal;
+    z-index: 2;
+    will-change: clip-path;
+  }
+}
+
+@keyframes cw-theme-circle-reveal {
+  from {
+    clip-path: circle(0px at var(--theme-x, 50%) var(--theme-y, 50%));
+  }
+  to {
+    clip-path: circle(var(--theme-r, 150vmax) at var(--theme-x, 50%) var(--theme-y, 50%));
+  }
+}
+
+/* 快照期间临时关闭 CSS 过渡：
+   否则 tokens.css 里 html 的 --c-* 1s 补间 + 各组件自身 transition 会让
+   「新快照」被拍成旧颜色（过渡起点），圆形扩散就看不到颜色变化。
+   动画结束（.theme-transitioning 被移除）后过渡恢复，此时颜色已是终值，不会再动。 */
+html.theme-transitioning,
+html.theme-transitioning * {
+  transition: none !important;
+}
+
+/* ============================================================
+   2) 动效降级：prefers-reduced-motion: reduce
+   审计结论（grep 全站 animation / transition）：
+   - 共 41 个文件含动画/过渡；仅 AppLayout.vue(4 处) / forms.css / liquid.css
+     自带 reduced-motion 分支，其余 38 个文件（含 DesktopPet、ToastBanner、
+     SubmitButton、CookieConsent、Charts、FlightPlan、NetworkFlight、
+     FlightArchive、Login、OnlineMap、base.css、overlays.css、mobile.css…）
+     完全没有降级分支 → 由下方通用规则统一兜底。
+   - 用 .001ms 而不是 0s：保留 animationend / transitionend 事件，
+     依赖事件收尾的组件（ToastBanner 进度条、FormField 校验抖动复位、
+     Vue <Transition> 的 after-leave 钩子）仍能正常走完收尾逻辑。
+   - 无限循环动画（桌宠 petFloat/petBlink/petTailWag、导航 route-bar-run、
+     Loading 旋转 spin 等）统一把 iteration-count 压到 1，避免 0.001ms
+     无限循环导致的频闪。
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  /* 主题切换：不播扩散动画（JS 侧也会直接切，这里再兜一层样式保险） */
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+
+  html.theme-transitioning,
+  html.theme-transitioning * {
+    transition: none !important;
+  }
+
+  /* 全站动效兜底（含伪元素） */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* 例外 1：全局红色横幅的进度条「动画即计时器」（utils/banner.js），
+     压到 0.001ms 会让横幅刚出现就消失、用户看不到报错。
+     这里停掉进度动画，改由 banner.js 的兜底 setTimeout(duration + 500) 关闭横幅。 */
+  .toast-banner__bar-inner {
+    animation: none !important;
+  }
+
+  /* 例外 2：回顶按钮不做位移动效，但仍保留显隐的可见性切换 */
+  .cw-float-btn,
+  .cw-float-btn:hover,
+  .cw-float-btn:active,
+  .cw-float-btn.is-hidden {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* ============================================================
+   3) 回顶按钮（components/FloatingButton.vue）显隐过渡
+   组件自身 scoped 样式只负责形状/配色/定位，动效统一放在这里，
+   便于全站集中降级与统一调参。
+   ============================================================ */
+
+.cw-float-btn {
+  transition:
+    opacity 0.26s ease,
+    transform 0.26s cubic-bezier(0.2, 0.8, 0.3, 1),
+    visibility 0.26s;
+  will-change: opacity, transform;
+}
+
+.cw-float-btn:not(.is-hidden) {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.cw-float-btn.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(12px) scale(0.92);
+}
+
+.cw-float-btn:hover:not(.is-hidden) {
+  transform: translateY(-2px);
+}
+
+.cw-float-btn:active:not(.is-hidden) {
+  transform: scale(0.94);
+  transition-duration: 0.12s;
+}

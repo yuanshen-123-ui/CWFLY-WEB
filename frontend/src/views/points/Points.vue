@@ -7,7 +7,10 @@
 
     <!-- 积分概览 -->
     <div class="card p-lg mb-lg">
-      <div class="stats-grid">
+      <div v-if="loading" class="stats-grid" aria-busy="true" aria-label="正在加载积分数据">
+        <Skeleton v-for="i in 5" :key="i" :height="64" :radius="8" />
+      </div>
+      <div v-else class="stats-grid">
         <div class="stat-item"><span class="stat-label">积分</span><span class="stat-value">{{ data.points || 0 }}</span></div>
         <div class="stat-item"><span class="stat-label">经验值</span><span class="stat-value">{{ data.exp || 0 }}</span></div>
         <div class="stat-item"><span class="stat-label">等级</span><span class="stat-value">{{ data.level || 1 }}</span></div>
@@ -19,14 +22,19 @@
     <!-- 成就列表 -->
     <div class="card p-lg">
       <h3 class="mb-md">我的成就</h3>
-      <div class="achievements-grid">
+      <div v-if="loading" class="achievements-grid" aria-busy="true" aria-label="正在加载成就">
+        <Skeleton v-for="i in 4" :key="i" :height="132" :radius="14" />
+      </div>
+      <div v-else-if="!achievements.length">
+        <EmptyState icon="trophy" title="暂无成就" description="完成飞行、参与活动即可解锁成就徽章。" />
+      </div>
+      <div v-else class="achievements-grid">
         <div v-for="a in achievements" :key="a.id" class="achievement-card card p-md" :class="{ unlocked: a.unlocked }">
           <div class="achievement-icon">{{ a.achievement?.icon || '🏆' }}</div>
           <h4 class="text-sm font-bold">{{ a.achievement?.name || '未知成就' }}</h4>
           <p class="text-xs text-muted">{{ a.achievement?.description || '' }}</p>
         </div>
       </div>
-      <div v-if="!achievements.length" class="text-center text-muted p-md">暂无成就</div>
     </div>
   </div>
 </template>
@@ -34,16 +42,22 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '@/api'
+import EmptyState from '@/components/base/EmptyState.vue'
+import Skeleton from '@/components/base/Skeleton.vue'
 
 const data = ref({})
 const achievements = ref([])
+const loading = ref(false)
 
 onMounted(async () => {
+  loading.value = true
   try {
     const r = await api.get('/points')
     data.value = r.data?.points || {}
     achievements.value = r.data?.achievements || []
-  } catch {}
+  } catch {} finally {
+    loading.value = false
+  }
 })
 </script>
 

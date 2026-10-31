@@ -9,9 +9,13 @@
     <div class="card p-lg mb-lg">
       <h3 class="mb-md">头像</h3>
       <div class="flex items-center gap-md">
-        <div class="avatar-preview">
-          <img :src="avatarUrl || defaultAvatar" class="avatar-img" />
-        </div>
+        <!-- 头像：UserAvatar 内置「加载失败回退首字母」与 alt 文本，替换自行维护的默认头像 data-uri -->
+        <UserAvatar
+          class="profile-avatar"
+          :src="avatarUrl"
+          :name="user.username"
+          :size="80"
+        />
         <div>
           <input type="file" accept="image/*" ref="fileInput" style="display:none;" @change="uploadAvatar" />
           <button class="btn btn-primary btn-sm" @click="$refs.fileInput.click()" :disabled="uploading">{{ uploading ? '上传中...' : '上传头像' }}</button>
@@ -22,13 +26,16 @@
     </div>
 
     <!-- 基本信息 -->
-    <div class="card p-lg mb-lg">
+    <div class="card p-lg mb-lg" :aria-busy="loading">
       <h3 class="mb-md">基本信息</h3>
-      <div class="profile-info">
+      <div v-if="loading" aria-busy="true" aria-label="正在加载个人信息">
+        <Skeleton :lines="5" :height="16" />
+      </div>
+      <div v-else class="profile-info">
         <div class="profile-row"><span class="text-muted">CID</span><span class="font-bold">{{ user.cid }}</span></div>
         <div class="profile-row"><span class="text-muted">用户名</span><span>{{ user.username }}</span></div>
         <div class="profile-row"><span class="text-muted">注册时间</span><span>{{ formatDate(profileData?.createdAt || user.profile?.createdAt) }}</span></div>
-        <div class="profile-row"><span class="text-muted">权限等级</span><span class="badge" :class="ratingBadge(profileData?.rating ?? 0)">{{ ratingName(profileData?.rating ?? 0) }}</span></div>
+        <div class="profile-row"><span class="text-muted">权限等级</span><UserTag :rating="profileData?.rating ?? 0" /></div>
         <div class="profile-row"><span class="text-muted">FSD 权限</span><span class="fsd-level-badge">{{ fsdLevelName(profileData?.fsdLevel ?? 1) }}</span></div>
 
       </div>
@@ -128,14 +135,17 @@ import { useUserStore } from '@/store/user'
 import { navLayout, narrowScreen, setNavLayout } from '@/utils/navLayout'
 import { profileApi } from '@/api'
 import api from '@/api'
+import Skeleton from '@/components/base/Skeleton.vue'
+import UserAvatar from '@/components/base/UserAvatar.vue'
+import UserTag from '@/components/base/UserTag.vue'
 
 const user = useUserStore()
 const fileInput = ref(null)
 const uploading = ref(false)
+const loading = ref(false)
 const profileData = ref(null)
-const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="#ccc"><circle cx="12" cy="8" r="4"/><path d="M12 14c-4 0-6 2-6 4v2h12v-2c0-2-2-4-6-4z"/></svg>')
 
-const avatarUrl = computed(() => profileData.value?.avatar ? profileData.value.avatar : null)
+const avatarUrl = computed(() => profileData.value?.avatar || '')
 
 const bind = reactive({ email: '', qq: '', verifyCode: '' })
 const bindLoading = ref(false)
@@ -168,10 +178,7 @@ const FSD_LEVEL_NAMES = {
 }
 function fsdLevelName(level) { return FSD_LEVEL_NAMES[level] || `未知(${level})` }
 
-// 权限等级名称/徽章（与用户管理一致）
-const RATING_NAMES = { 0: '普通用户', 8: '协管员', 9: '高级协管员', 11: '管理员', 12: '超级管理员' }
-function ratingName(level) { return RATING_NAMES[level] || `未知(${level})` }
-function ratingBadge(level) { return level >= 11 ? 'badge-danger' : level >= 8 ? 'badge-warning' : 'badge-default' }
+// 权限等级标签统一由 UserTag 渲染（语义色映射在组件内维护，避免页面重复实现）
 
 // 日期格式化：只显示 YYYY-MM-DD（本地时区）
 function formatDate(v) {
@@ -185,13 +192,16 @@ function formatDate(v) {
 }
 
 onMounted(async () => {
+  loading.value = true
   try {
     const res = await profileApi.get()
     profileData.value = res.data
     bind.email = res.data.email || ''
     bind.qq = res.data.qq || ''
     applyBg(res.data.bgImage)
-  } catch {}
+  } catch {} finally {
+    loading.value = false
+  }
 })
 
 async function uploadAvatar(e) {
@@ -339,8 +349,8 @@ async function changePwd() {
   font-size: 14px;
 }
 .profile-row:last-child { border-bottom: none; }
-.avatar-preview { width:80px;height:80px;border-radius:50%;overflow:hidden;border:3px solid var(--c-border);flex-shrink:0; }
-.avatar-img { width:100%;height:100%;object-fit:cover; }
+/* 头像容器边框交给页面，圆形裁剪/加载失败回退逻辑在 UserAvatar 内 */
+.profile-avatar { border: 3px solid var(--c-border); }
 .rating-value {
   font-weight: 700;
   color: var(--c-primary);

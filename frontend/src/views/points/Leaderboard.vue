@@ -6,7 +6,14 @@
     </div>
 
     <div class="card p-lg">
-      <div class="table-wrap">
+      <!-- 加载态 Skeleton / 空态 EmptyState -->
+      <div v-if="loading" aria-busy="true" aria-label="正在加载排行榜">
+        <Skeleton :lines="6" :height="16" />
+      </div>
+      <div v-else-if="!leaderboard.length">
+        <EmptyState icon="trophy" title="暂无排行数据" description="还没有用户产生积分，完成飞行或参与活动后即可上榜。" />
+      </div>
+      <div v-else class="table-wrap">
         <table v-sort>
           <thead>
             <tr>
@@ -27,7 +34,6 @@
               <td><span class="badge badge-info">Lv.{{ u.level || 1 }}</span></td>
               <td>{{ u.flights || 0 }}</td>
             </tr>
-            <tr v-if="!leaderboard.length"><td colspan="6" class="text-center text-muted">暂无数据</td></tr>
           </tbody>
         </table>
       </div>
@@ -38,11 +44,17 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '@/api'
+import EmptyState from '@/components/base/EmptyState.vue'
+import Skeleton from '@/components/base/Skeleton.vue'
 
 const leaderboard = ref([])
+const loading = ref(false)
 
 onMounted(async () => {
-  try { const r = await api.get('/points/leaderboard'); leaderboard.value = r.data || [] } catch {}
+  loading.value = true
+  try { const r = await api.get('/points/leaderboard'); leaderboard.value = r.data || [] } catch {} finally {
+    loading.value = false
+  }
 })
 </script>
 

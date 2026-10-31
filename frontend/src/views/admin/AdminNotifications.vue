@@ -9,7 +9,14 @@
     </div>
 
     <div class="card p-lg">
-      <div class="table-wrap">
+      <!-- 加载态 Skeleton / 空态 EmptyState -->
+      <div v-if="loading" aria-busy="true" aria-label="正在加载通知列表">
+        <Skeleton :lines="6" :height="16" />
+      </div>
+      <div v-else-if="!notifications.length">
+        <EmptyState icon="bell" title="暂无通知" description="还没有发送过系统通知，点击右上角「发送通知」创建第一条。" />
+      </div>
+      <div v-else class="table-wrap">
         <table v-sort>
           <thead>
             <tr><th>ID</th><th>用户</th><th>类型</th><th>标题</th><th>已读</th><th>时间</th><th>操作</th></tr>
@@ -23,46 +30,50 @@
               <td class="text-sm">{{ formatTime(n.createdAt) }}</td>
               <td><button class="btn btn-outline btn-xs" @click="deleteNotif(n.id)">删除</button></td>
             </tr>
-            <tr v-if="!notifications.length"><td colspan="7" class="text-center text-muted">暂无通知</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- 创建通知弹窗 -->
-    <div v-if="showCreate" class="modal-overlay" @click.self="showCreate = false">
-      <div class="modal card p-lg">
-        <h3 class="mb-md">发送通知</h3>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">目标用户CID（留空为全部）</label>
-          <input v-model="newNotif.userId" class="input" placeholder="留空发送给所有用户" />
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">类型</label>
-          <SelectMenu v-model="newNotif.type" :options="[{ value: 'system', label: '系统通知' }, { value: 'event', label: '活动通知' }, { value: 'forum', label: '论坛通知' }, { value: 'training', label: '培训通知' }]" />
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">标题</label>
-          <input v-model="newNotif.title" class="input" placeholder="通知标题" />
-        </div>
-        <div class="mb-md">
-          <label class="text-sm font-bold mb-sm" style="display:block;">内容</label>
-          <textarea v-model="newNotif.content" class="input" rows="3" placeholder="通知内容"></textarea>
-        </div>
-        <div class="flex gap-sm">
-          <button class="btn btn-primary" @click="createNotif" :disabled="createLoading">{{ createLoading ? '发送中...' : '发送' }}</button>
-          <button class="btn btn-outline" @click="showCreate = false">取消</button>
-        </div>
+    <!-- 创建通知弹窗：AppModal 统一 Teleport / Esc / 焦点迁移与还原 / 滚动锁 -->
+    <AppModal
+      v-model:open="showCreate"
+      title="发送通知"
+      width="480px"
+    >
+      <div class="mb-md">
+        <label class="text-sm font-bold mb-sm" style="display:block;">目标用户CID（留空为全部）</label>
+        <input v-model="newNotif.userId" class="input" placeholder="留空发送给所有用户" />
       </div>
-    </div>
+      <div class="mb-md">
+        <label class="text-sm font-bold mb-sm" style="display:block;">类型</label>
+        <SelectMenu v-model="newNotif.type" :options="[{ value: 'system', label: '系统通知' }, { value: 'event', label: '活动通知' }, { value: 'forum', label: '论坛通知' }, { value: 'training', label: '培训通知' }]" />
+      </div>
+      <div class="mb-md">
+        <label class="text-sm font-bold mb-sm" style="display:block;">标题</label>
+        <input v-model="newNotif.title" class="input" placeholder="通知标题" />
+      </div>
+      <div>
+        <label class="text-sm font-bold mb-sm" style="display:block;">内容</label>
+        <textarea v-model="newNotif.content" class="input" rows="3" placeholder="通知内容"></textarea>
+      </div>
+      <template #footer>
+        <button class="btn btn-outline" @click="showCreate = false">取消</button>
+        <button class="btn btn-primary" @click="createNotif" :disabled="createLoading">{{ createLoading ? '发送中...' : '发送' }}</button>
+      </template>
+    </AppModal>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '@/api'
+import AppModal from '@/components/base/AppModal.vue'
+import EmptyState from '@/components/base/EmptyState.vue'
+import Skeleton from '@/components/base/Skeleton.vue'
 
 const notifications = ref([])
+const loading = ref(false)
 const showCreate = ref(false)
 const createLoading = ref(false)
 const newNotif = ref({ userId: '', type: 'system', title: '', content: '' })
@@ -70,7 +81,10 @@ const newNotif = ref({ userId: '', type: 'system', title: '', content: '' })
 onMounted(() => load())
 
 async function load() {
-  try { const r = await api.get('/admin/notifications'); notifications.value = r.data || [] } catch {}
+  loading.value = true
+  try { const r = await api.get('/admin/notifications'); notifications.value = r.data || [] } catch {} finally {
+    loading.value = false
+  }
 }
 
 async function createNotif() {
@@ -96,8 +110,3 @@ function formatTime(t) {
   return new Date(t).toLocaleString('zh-CN')
 }
 </script>
-
-<style scoped>
-.modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:1000; }
-.modal { width:480px;max-width:90vw; }
-</style>

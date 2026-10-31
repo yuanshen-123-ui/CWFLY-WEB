@@ -8,7 +8,14 @@
     </div>
 
     <div class="card">
-      <div class="table-wrap">
+      <!-- 加载态：统一 Skeleton；空态：统一 EmptyState -->
+      <div v-if="loading" class="p-lg" aria-busy="true" aria-label="正在加载用户列表">
+        <Skeleton :lines="6" :height="16" />
+      </div>
+      <div v-else-if="!users.length" class="p-md">
+        <EmptyState icon="users" title="暂无用户" description="当前没有可管理的用户，或列表尚未返回数据。" />
+      </div>
+      <div v-else class="table-wrap">
         <table v-sort>
           <thead>
             <tr>
@@ -27,7 +34,7 @@
               <td class="font-bold">{{ u.cid }}</td>
               <td>{{ u.username }}</td>
               <td>
-                <span class="badge" :class="ratingBadge(u.rating ?? 0)">{{ ratingName(u.rating ?? 0) }}</span>
+                <UserTag :rating="u.rating ?? 0" />
               </td>
               <td>
                 <span class="fsd-badge" :class="'fsd-' + (u.fsdLevel ?? 1)">{{ fsdLevelName(u.fsdLevel ?? 1) }}</span>
@@ -42,20 +49,19 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="!users.length">
-              <td colspan="7" class="text-center text-muted">暂无用户</td>
-            </tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- 编辑弹窗（毛玻璃） -->
-    <Teleport to="body">
-    <Transition name="modal">
-    <div v-if="editUser" class="modal-overlay" @click.self="closeEdit">
-      <div class="modal-card">
-        <h3 class="modal-title">编辑用户</h3>
+    <!-- 编辑弹窗：AppModal 统一处理 Teleport / 焦点迁移与还原 / Esc / 滚动锁 -->
+    <AppModal
+      :open="!!editUser"
+      title="编辑用户"
+      width="540px"
+      @update:open="(v) => { if (!v) closeEdit() }"
+    >
+      <template v-if="editUser">
         <div class="modal-field"><label>ID</label><span>{{ editUser.id }}</span></div>
         <div class="modal-field"><label>CID</label><span>{{ editUser.cid }}</span></div>
         <div class="modal-field">
@@ -95,21 +101,21 @@
             <div class="modal-field"><label>最近登录指纹</label><span>{{ editUser.lastLoginFp || '-' }}</span></div>
           </template>
         </div>
-        <div class="modal-actions">
-          <button class="btn btn-primary" @click="saveEdit">保存</button>
-          <button class="btn btn-outline" @click="closeEdit">取消</button>
-        </div>
-      </div>
-    </div>
-    </Transition>
-    </Teleport>
+      </template>
+      <template #footer>
+        <button class="btn btn-outline" @click="closeEdit">取消</button>
+        <button class="btn btn-primary" @click="saveEdit">保存</button>
+      </template>
+    </AppModal>
 
-    <!-- 删除确认弹窗（毛玻璃） -->
-    <Teleport to="body">
-    <Transition name="modal">
-    <div v-if="deleteTarget" class="modal-overlay" @click.self="closeDelete">
-      <div class="modal-card">
-        <h3 class="modal-title">删除用户</h3>
+    <!-- 删除确认弹窗：AppModal + footer 插槽 -->
+    <AppModal
+      :open="!!deleteTarget"
+      title="删除用户"
+      width="540px"
+      @update:open="(v) => { if (!v) closeDelete() }"
+    >
+      <template v-if="deleteTarget">
         <p class="modal-desc">
           确定删除用户 <b>{{ deleteTarget.username }}</b>（CID: {{ deleteTarget.cid }}）？此操作不可恢复。
         </p>
@@ -132,14 +138,12 @@
           </template>
           <div v-else class="ban-preview-title">该用户无有效 IP，无法加入黑名单</div>
         </div>
-        <div class="modal-actions">
-          <button class="btn btn-primary" style="background:var(--c-danger);border-color:var(--c-danger);" @click="confirmDelete">确认删除</button>
-          <button class="btn btn-outline" @click="closeDelete">取消</button>
-        </div>
-      </div>
-    </div>
-    </Transition>
-    </Teleport>
+      </template>
+      <template #footer>
+        <button class="btn btn-outline" @click="closeDelete">取消</button>
+        <button class="btn btn-primary" style="background:var(--c-danger);border-color:var(--c-danger);" @click="confirmDelete">确认删除</button>
+      </template>
+    </AppModal>
   </div>
 </template>
 
@@ -147,6 +151,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { adminApi } from '@/api'
 import { useUserStore } from '@/store/user'
+import AppModal from '@/components/base/AppModal.vue'
+import EmptyState from '@/components/base/EmptyState.vue'
+import Skeleton from '@/components/base/Skeleton.vue'
+import UserTag from '@/components/base/UserTag.vue'
 
 /** 当前登录管理员信息（用于封禁人预览）
  *  调用时机：模块初始化时获取，供 banPreview 计算使用 */
@@ -161,6 +169,7 @@ const FSD_LEVEL_NAMES = {
 function fsdLevelName(level) { return FSD_LEVEL_NAMES[level] || `未知(${level})` }
 
 const users = ref([])
+const loading = ref(false)
 const editUser = ref(null)
 const editRating = ref(0)
 const editFsdLevel = ref(1)
@@ -172,19 +181,20 @@ const deleteBan = ref(false)
  *  调用时机：删除确认弹窗内由输入框双向绑定，confirmDelete 提交时读取 */
 const banReason = ref('')
 
-const RATING_NAMES = { 0: '普通用户', 8: '协管员', 9: '高级协管员', 11: '管理员', 12: '超级管理员' }
-function ratingName(level) { return RATING_NAMES[level] || `未知(${level})` }
-function ratingBadge(level) { return level >= 11 ? 'badge-danger' : level >= 8 ? 'badge-warning' : 'badge-default' }
+// 权限等级标签统一由 UserTag 渲染（语义色映射在组件内维护，避免页面重复实现）
 // 编辑/删除权限: 仅管理员(11)/超管(12)可操作; 非超管不能操作管理员(11)及以上等级的用户
 function canManageUser(u) {
   return userStore.rating >= 11 && (userStore.rating >= 12 || (u.rating ?? 0) < 11)
 }
 
 async function loadUsers() {
+  loading.value = true
   try {
     const res = await adminApi.users()
     users.value = res.data
-  } catch { /* ignore */ }
+  } catch { /* ignore */ } finally {
+    loading.value = false
+  }
 }
 onMounted(loadUsers)
 
@@ -293,34 +303,7 @@ async function confirmDelete() {
 
 <style scoped>
 
-/* 编辑弹窗：毛玻璃 */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-}
-.modal-card {
-  width: 540px;
-  max-width: calc(100vw - 32px);
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 26px 28px;
-  border-radius: 20px;
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border-strong);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
-}
-.modal-title {
-  margin: 0 0 20px;
-  font-size: 18px;
-  font-weight: 600;
-}
+/* 弹窗外壳（遮罩/卡片/标题/底部按钮）由 base/AppModal.vue 统一提供，这里只保留字段排版 */
 .modal-field {
   display: flex;
   align-items: center;
@@ -428,12 +411,6 @@ async function confirmDelete() {
 .ban-preview-ip {
   font-weight: 600;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 22px;
 }
 
 .table-wrap table {

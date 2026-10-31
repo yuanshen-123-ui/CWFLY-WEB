@@ -1,0 +1,146 @@
+/* ============================================================
+   设计令牌：@property 注册、浅色/暗色主题变量、圆角/阴影/玻璃参数
+   （拆分自 assets/global.css 第 1-142 行，内容未改动）
+   ============================================================ */
+
+/* ============================
+   CW 模拟飞行连飞平台 — 全局样式
+   玻璃拟态风格
+   ============================ */
+
+/* ===== 主题色变量注册（@property）=====
+   把主题色注册为可过渡的 <color> 变量，并在 html 根元素上过渡这些变量：
+   切 data-theme 时只有「根元素一个元素」在做过渡，所有用到 var(--c-*) / var(--glass-*)
+   的元素自动跟随插值，实现全站 UI 颜色 ~1s 平滑过渡。
+   比全局 `* { transition: ... }` 通配过渡更可靠：后者会让成千上万元素同时开始过渡，
+   被浏览器反复冻结/重启，导致个别组件颜色要 3~4 秒才变完（已移除）。 */
+@property --c-primary { syntax: '<color>'; inherits: true; initial-value: #0071e3; }
+@property --c-primary-dark { syntax: '<color>'; inherits: true; initial-value: #0062c4; }
+@property --c-primary-light { syntax: '<color>'; inherits: true; initial-value: rgba(0, 113, 227, 0.1); }
+@property --c-accent { syntax: '<color>'; inherits: true; initial-value: #ff9f0a; }
+@property --c-white { syntax: '<color>'; inherits: true; initial-value: rgba(255, 255, 255, 0.85); }
+@property --c-bg { syntax: '<color>'; inherits: true; initial-value: transparent; }
+@property --c-bg-card { syntax: '<color>'; inherits: true; initial-value: rgba(255, 255, 255, 0.4); }
+@property --c-border { syntax: '<color>'; inherits: true; initial-value: rgba(255, 255, 255, 0.25); }
+@property --c-border-light { syntax: '<color>'; inherits: true; initial-value: rgba(255, 255, 255, 0.15); }
+@property --c-text { syntax: '<color>'; inherits: true; initial-value: #1d1d1f; }
+@property --c-text-secondary { syntax: '<color>'; inherits: true; initial-value: #424245; }
+@property --c-text-muted { syntax: '<color>'; inherits: true; initial-value: #86868b; }
+@property --c-success { syntax: '<color>'; inherits: true; initial-value: #30d158; }
+@property --c-warning { syntax: '<color>'; inherits: true; initial-value: #ff9f0a; }
+@property --c-danger { syntax: '<color>'; inherits: true; initial-value: #ff453a; }
+@property --c-info { syntax: '<color>'; inherits: true; initial-value: #64d2ff; }
+@property --glass-bg { syntax: '<color>'; inherits: true; initial-value: rgba(255, 255, 255, 0.18); }
+@property --glass-bg-strong { syntax: '<color>'; inherits: true; initial-value: rgba(255, 255, 255, 0.48); }
+@property --glass-border { syntax: '<color>'; inherits: true; initial-value: rgba(255, 255, 255, 0.2); }
+@property --glass-border-strong { syntax: '<color>'; inherits: true; initial-value: rgba(255, 255, 255, 0.35); }
+
+/* 根元素过渡主题色变量（1s）：切 data-theme 时颜色平滑渐变 */
+html {
+  transition-property: --c-primary, --c-primary-dark, --c-primary-light, --c-accent,
+    --c-white, --c-bg, --c-bg-card, --c-border, --c-border-light,
+    --c-text, --c-text-secondary, --c-text-muted,
+    --c-success, --c-warning, --c-danger, --c-info,
+    --glass-bg, --glass-bg-strong, --glass-border, --glass-border-strong;
+  transition-duration: 1s;
+  transition-timing-function: ease;
+}
+
+:root {
+  /* Apple 风格主色调 — 更温润的蓝 */
+  --c-primary: #0071e3;
+  --c-primary-dark: #0062c4;
+  --c-primary-light: rgba(0, 113, 227, 0.1);
+  --c-accent: #ff9f0a;
+
+  /* 中立色 — 更通透 */
+  --c-white: rgba(255, 255, 255, 0.85);
+  --c-bg: transparent;
+  --c-bg-card: rgba(255, 255, 255, 0.4);
+  --c-border: rgba(255, 255, 255, 0.25);
+  --c-border-light: rgba(255, 255, 255, 0.15);
+
+  /* 文字 — 更高对比度，更清晰 */
+  --c-text: #1d1d1f;
+  --c-text-secondary: #424245;
+  --c-text-muted: #86868b;
+
+  /* Apple 系统状态色 */
+  --c-success: #30d158;
+  --c-warning: #ff9f0a;
+  --c-danger: #ff453a;
+  --c-info: #64d2ff;
+
+  /* 尺寸 — Apple 式圆角 */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.04), 0 1px 2px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+  --shadow-xl: 0 24px 64px rgba(0,0,0,.12);
+  --transition: .35s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --header-h: 60px;
+  --sidebar-w: 220px;
+
+  /* Apple 玻璃效果 — 多层叠加更真实 */
+  --glass-bg: rgba(255, 255, 255, 0.22);
+  --glass-bg-strong: rgba(255, 255, 255, 0.42);
+  --glass-border: rgba(255, 255, 255, 0.28);
+  --glass-border-strong: rgba(255, 255, 255, 0.45);
+  --glass-blur: 20px;
+  --glass-blur-lg: 28px;
+  --glass-saturate: 180%;
+  /* Liquid Glass：内高光 + 弥散外阴影 + 斜向透光 */
+  --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.8), inset 0 -1px 1px rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --glass-shadow-lg: 0 18px 56px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.35) 100%);
+  --glass-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ---------- 暗色主题（html[data-theme='dark'] 覆盖） ---------- */
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --c-primary: #0a84ff;
+  --c-primary-dark: #0a84ff;
+  --c-primary-light: rgba(10, 132, 255, 0.18);
+  --c-accent: #ff9f0a;
+
+  --c-white: rgba(28, 28, 30, 0.85);
+  --c-bg-card: rgba(28, 28, 30, 0.55);
+  --c-border: rgba(255, 255, 255, 0.12);
+  --c-border-light: rgba(255, 255, 255, 0.08);
+
+  --c-text: #f5f5f7;
+  --c-text-secondary: #d1d1d6;
+  --c-text-muted: #98989d;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.4);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,.6), 0 4px 16px rgba(0,0,0,.4);
+  --shadow-xl: 0 24px 64px rgba(0,0,0,.7);
+
+  --glass-bg: rgba(28, 28, 30, 0.38);
+  --glass-bg-strong: rgba(28, 28, 30, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-border-strong: rgba(255, 255, 255, 0.2);
+  /* 深色模式：高光收敛、阴影加深，保持折射质感 */
+  --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.22), inset 0 -1px 1px rgba(255, 255, 255, 0.06);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --glass-shadow-lg: 0 18px 56px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 45%, rgba(255, 255, 255, 0.08) 100%);
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ===== 深浅色主题切换说明 =====
+   不再使用全局 `* { transition: ... 1s }` 通配过渡（会让成千上万元素同时过渡，
+   浏览器反复冻结/重启，个别组件颜色 3~4 秒才变完）。
+   全站主题色平滑过渡改由顶部 @property + html 根元素过渡实现（见文件头）；
+   各组件自身的 hover/背景图过渡（如 .bg-time-img 的 opacity 3s、按钮 .15s 等）不受影响。 */

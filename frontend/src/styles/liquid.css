@@ -1,0 +1,105 @@
+/* ============================================================
+   液态玻璃升级层
+   （拆分自 assets/global.css 第 654-755 行，内容未改动）
+   ============================================================ */
+
+/* ================= Liquid Glass（液态玻璃）升级 =================
+   统一目标：blur(20px) saturate(180%) + 内高光 + 弥散外阴影 + 斜向透光
+   浅色/深色模式均通过变量切换，保持同一套折射质感。 */
+
+.card {
+  background-color: var(--glass-bg-strong);
+  background-image: var(--glass-sheen);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border-strong);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  transition: transform .35s var(--glass-spring), box-shadow .35s ease,
+              background-color .35s ease, border-color .35s ease;
+}
+.card:hover {
+  box-shadow: var(--glass-highlight), var(--glass-shadow-lg);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+html[data-theme='dark'] .card:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+}
+.card--hover:hover {
+  background-color: rgba(255, 255, 255, 0.58);
+  transform: translateY(-2px) scale(1.004);
+}
+html[data-theme='dark'] .card--hover:hover {
+  background-color: rgba(28, 28, 30, 0.76);
+}
+
+/* 按钮：弹性点击 + 悬浮透光 */
+.btn {
+  transform: translateZ(0);
+  will-change: transform;
+  transition: transform .22s var(--glass-spring), box-shadow .3s ease,
+              background-color .3s ease, background-image .3s ease,
+              border-color .3s ease, color .3s ease, filter .3s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: scale(0.94); transition-duration: .08s; }
+.btn:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
+
+.btn-primary {
+  background-image: linear-gradient(180deg, #3ba0ff 0%, #0071e3 55%, #0062c4 100%);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.55), 0 8px 24px rgba(0, 113, 227, 0.35);
+  color: #fff;
+}
+.btn-primary:hover {
+  background-image: linear-gradient(180deg, #4aabff 0%, #0a7cf0 55%, #0068cf 100%);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.65), 0 12px 32px rgba(0, 113, 227, 0.45);
+  filter: saturate(1.05);
+}
+.btn-primary:active {
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 113, 227, 0.3);
+}
+
+.btn-outline {
+  background-color: var(--glass-bg);
+  background-image: var(--glass-sheen);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border-strong);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  color: var(--c-text);
+}
+.btn-outline:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background-color: var(--glass-bg-strong);
+  box-shadow: var(--glass-highlight), var(--glass-shadow-lg);
+  color: var(--c-primary);
+}
+html[data-theme='dark'] .btn-outline { color: var(--c-text); }
+html[data-theme='dark'] .btn-outline:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #7ac0ff;
+}
+
+/* 玻璃工具类同步升级 */
+.glass, .glass-strong {
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  background-image: var(--glass-sheen);
+}
+.glass-strong { border-color: var(--glass-border-strong); }
+
+/* 不支持 backdrop-filter 的浏览器：提高不透明度兜底可读性 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .card, .glass, .glass-strong, .btn-outline { background-color: rgba(255, 255, 255, 0.86); }
+  html[data-theme='dark'] .card,
+  html[data-theme='dark'] .glass,
+  html[data-theme='dark'] .glass-strong,
+  html[data-theme='dark'] .btn-outline { background-color: rgba(28, 28, 30, 0.88); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .card { transition: none; }
+  .btn:hover, .btn:active, .card--hover:hover { transform: none; }
+}
