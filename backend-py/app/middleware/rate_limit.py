@@ -25,6 +25,11 @@ from app.utils.client import get_client_ip
 
 FREQUENT_MESSAGE = "请求过于频繁，请稍后再试"
 LOGIN_FREQUENT_MESSAGE = "请求过于频繁"
+LOGIN_LOCKED_MESSAGE = "登录尝试过于频繁，请 15 分钟后再试"
+REGISTER_MESSAGE = "注册过于频繁，请稍后再试"
+SENSITIVE_MESSAGE = "敏感操作过于频繁，请稍后再试"
+VERIFY_MESSAGE = "验证码请求过于频繁，请稍后再试"
+CODE_FP_MESSAGE = "验证码发送过于频繁，请稍后再试"
 
 # key: (scope, ip) -> 时间戳队列（单调时钟）
 _buckets: dict[tuple[str, str], Deque[float]] = {}
@@ -107,16 +112,20 @@ class RateLimitMiddleware:
 
 # ---- 预置规则（数值与 Node 完全一致）----
 GLOBAL_API = Limit("global-api", 60, 60)
-LOGIN = Limit("auth-login", 15 * 60, 5, LOGIN_FREQUENT_MESSAGE)
-REGISTER = Limit("auth-register", 60 * 60, 2)
-SENSITIVE = Limit("auth-sensitive", 60 * 60, 5)
+LOGIN = Limit("auth-login", 15 * 60, 5, LOGIN_LOCKED_MESSAGE)
+REGISTER = Limit("auth-register", 60 * 60, 2, REGISTER_MESSAGE)
+SENSITIVE = Limit("auth-sensitive", 60 * 60, 5, SENSITIVE_MESSAGE)
 PIXEL = Limit("security-pixel", 60, 120, LOGIN_FREQUENT_MESSAGE)
 NETWORK_INFO = Limit("security-network", 60, 60, LOGIN_FREQUENT_MESSAGE)
+VERIFY = Limit("verify-send", 15 * 60, 5, VERIFY_MESSAGE)
+CODE_FP = Limit("verify-code-fp", 24 * 60 * 60, 10, CODE_FP_MESSAGE)
 
 global_api_limiter = rate_limiter(GLOBAL_API)
 login_limiter = rate_limiter(LOGIN)
 register_limiter = rate_limiter(REGISTER)
 sensitive_limiter = rate_limiter(SENSITIVE)
+verify_limiter = rate_limiter(VERIFY)
+code_fp_limiter = rate_limiter(CODE_FP)
 
 __all__ = [
     "Limit",
@@ -132,4 +141,8 @@ __all__ = [
     "login_limiter",
     "register_limiter",
     "sensitive_limiter",
+    "verify_limiter",
+    "code_fp_limiter",
+    "VERIFY",
+    "CODE_FP",
 ]

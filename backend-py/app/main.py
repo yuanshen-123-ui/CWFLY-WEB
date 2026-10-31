@@ -26,7 +26,7 @@ from app.middleware.rate_limit import (
     RateLimitMiddleware,
 )
 from app.middleware.security_headers import SecurityHeadersMiddleware
-from app.routers import auth, flightplans
+from app.routers import iter_routers
 from app.services.bootstrap import init_admin
 from app.utils.json_compat import JSJSONResponse, js_iso
 
@@ -41,10 +41,22 @@ log = logging.getLogger("cwfly.main")
 async def lifespan(app: FastAPI):
     # 与 Node 版一致：服务就绪前完成管理员初始化
     await init_admin()
+    try:
+        from app.jobs.scheduler import start_jobs
+
+        start_jobs()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("[CWFLY] 定时任务未启用: %s", exc)
     log.info("[CWFLY] FastAPI 后端已启动（PORT=%s, env=%s）", settings.PORT, settings.NODE_ENV)
     try:
         yield
     finally:
+        try:
+            from app.jobs.scheduler import stop_jobs
+
+            await stop_jobs()
+        except Exception:  # noqa: BLE001
+            pass
         await dispose_engine()
 
 
@@ -126,8 +138,8 @@ async def _unhandled_handler(request: Request, exc: Exception) -> Response:
 
 # ---------- 路由 ----------
 api = APIRouter(prefix="/api")
-api.include_router(auth.router)
-api.include_router(flightplans.router)
+for _router in iter_routers():
+    api.include_router(_router)
 app.include_router(api)
 
 
@@ -146,7 +158,18 @@ async def health() -> Response:
 
 @app.get("/whazzup.json")
 async def whazzup_json() -> Response:
-    """在线状态 JSON（P2 移植 whazzup 缓存后返回真实数据；未就绪时与 Node 一致返回 503）。"""
+    """在线状态 JSON（对齐 Node server.js：有缓存返回数据，未就绪返回 503）。"""
+    try:
+        from app.services.whazzup import get_cached_whazzup
+
+        data = get_cached_whazzup()
+    except Exception:
+        data = None
+    if data is not None:
+        return JSONResponse(
+            data,
+            headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "max-age=15"},
+        )
     return JSONResponse(
         {"error": "whazzup data not ready"},
         status_code=503,

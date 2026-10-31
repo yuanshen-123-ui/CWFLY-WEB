@@ -54,16 +54,29 @@ def _ms(value: Any) -> int:
 # ==================== 公开接口 ====================
 @router.get("/fsd/boundaries")
 async def fsd_boundaries(db: AsyncSession = Depends(get_db)) -> JSJSONResponse:
-    """管制区边界。
-
-    TODO(P2): 移植 Node src/services/controllerBoundaries.js（40KB 几何算法）；
-    当前与 Node 的异常分支一致返回空数组，前端地图会跳过边界绘制。
-    """
+    """管制区边界（Node: src/services/controllerBoundaries.js，异步移植版）。"""
     try:
+        from app.services.controller_boundaries import get_controller_boundaries
+
         rows = await fp.list_online_controllers(db)
-        if not rows:
-            return _ok([])
-        return _ok([])
+        controllers = [
+            {
+                "callsign": c.get("callsign"),
+                "cid": c.get("cid"),
+                "realname": c.get("realname"),
+                "rating": 0,
+                "facilityType": int(c.get("facilityType") or 0),
+                "frequency": f"{float(c['frequency']):.3f}" if c.get("frequency") is not None else "0",
+                "visualRange": int(c.get("visualRange") or 40),
+                "lat": float(c.get("lat") or 0),
+                "lon": float(c.get("lon") or 0),
+                "altitude": 0,
+                "lastSeen": _ms(c.get("updatedAt")),
+            }
+            for c in rows
+        ]
+        boundaries = await get_controller_boundaries(controllers)
+        return _ok(boundaries)
     except Exception:
         return _ok([])
 

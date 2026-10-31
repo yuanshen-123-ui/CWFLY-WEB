@@ -57,8 +57,10 @@ def generate_share_id() -> str:
 
 
 def zh_now_string() -> str:
-    """对齐 Node `new Date().toLocaleString('zh-CN', { hour12: false })`。"""
-    return dt.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    """对齐 Node `new Date().toLocaleString('zh-CN', { hour12: false })`（月/日不补零）。"""
+    from app.services.zh_time_service import zh_now
+
+    return zh_now()
 
 
 def normalize_row(row: Any) -> dict[str, Any]:

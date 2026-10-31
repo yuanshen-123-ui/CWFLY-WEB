@@ -474,10 +474,10 @@ def _frontend_url() -> str:
 
 
 def _now_cn_string() -> str:
-    """对齐 Node `new Date().toLocaleString('zh-CN')` 的近似输出。"""
-    import datetime as dt
+    """对齐 Node `new Date().toLocaleString('zh-CN')`（月/日不补零）。"""
+    from app.services.zh_time_service import zh_now
 
-    return dt.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    return zh_now()
 
 
 __all__ = ["router", "AuthFailure", "Response"]

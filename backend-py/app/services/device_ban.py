@@ -7,7 +7,6 @@ Node 版使用内存缓存 + DeviceBan 表，每 60s 热加载。P0 阶段先做
 """
 from __future__ import annotations
 
-import datetime as dt
 from typing import Optional
 
 from sqlalchemy import text
@@ -23,10 +22,9 @@ async def is_device_banned(device_fp: Optional[str]) -> bool:
             row = (
                 await db.execute(
                     text(
-                        "SELECT id FROM `DeviceBan` WHERE deviceFp = :fp "
-                        "AND (expiresAt IS NULL OR expiresAt > :now) LIMIT 1"
+                        "SELECT id FROM `DeviceBan` WHERE fp = :fp LIMIT 1"
                     ),
-                    {"fp": device_fp, "now": dt.datetime.utcnow()},
+                    {"fp": device_fp},
                 )
             ).first()
             return row is not None
