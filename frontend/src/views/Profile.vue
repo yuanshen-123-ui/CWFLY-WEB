@@ -75,6 +75,39 @@
       </div>
     </div>
 
+    <!-- 界面布局 -->
+    <div class="card p-lg mb-lg">
+      <h3 class="mb-md">界面布局</h3>
+      <p class="text-sm text-muted mb-md">
+        选择导航菜单位置，偏好会保存在本机；窗口宽度小于 860px 时自动回退为侧边栏抽屉。
+      </p>
+      <div class="layout-options">
+        <button
+          type="button"
+          class="layout-option"
+          data-layout="sidebar"
+          :class="{ active: navLayout === 'sidebar' }"
+          @click="setNavLayout('sidebar')"
+        >
+          <span class="layout-option__preview layout-option__preview--sidebar" aria-hidden="true"><i></i><i></i></span>
+          <span class="layout-option__label">侧边栏布局</span>
+          <span class="layout-option__hint">菜单固定在左侧，适合宽屏浏览</span>
+        </button>
+        <button
+          type="button"
+          class="layout-option"
+          data-layout="topbar"
+          :class="{ active: navLayout === 'topbar' }"
+          @click="setNavLayout('topbar')"
+        >
+          <span class="layout-option__preview layout-option__preview--topbar" aria-hidden="true"><i></i><i></i></span>
+          <span class="layout-option__label">顶部栏布局</span>
+          <span class="layout-option__hint">菜单横向排列，内容区域更宽</span>
+        </button>
+      </div>
+      <p v-if="narrowScreen" class="text-xs mt-sm text-muted">当前窗口较窄，已自动使用侧边栏抽屉模式。</p>
+    </div>
+
     <!-- 修改密码 -->
     <div class="card p-lg">
       <h3 class="mb-md">修改密码</h3>
@@ -92,6 +125,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '@/store/user'
+import { navLayout, narrowScreen, setNavLayout } from '@/utils/navLayout'
 import { profileApi } from '@/api'
 import api from '@/api'
 
@@ -331,4 +365,54 @@ async function changePwd() {
   border-radius: 10px;
   font-size: 13px;
 }
+/* 界面布局切换卡片 */
+.layout-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  max-width: 560px;
+}
+.layout-option {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--c-border-light);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--c-text);
+  transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+}
+.layout-option:hover {
+  border-color: var(--c-primary);
+  background: rgba(0, 113, 227, .05);
+  transform: translateY(-1px);
+}
+.layout-option.active {
+  border-color: var(--c-primary);
+  background: rgba(0, 113, 227, .08);
+  box-shadow: inset 0 0 0 1px rgba(0, 113, 227, .18);
+}
+.layout-option__label { font-size: 14px; font-weight: 600; }
+.layout-option__hint { font-size: 12px; color: var(--c-text-muted); line-height: 1.5; }
+.layout-option__preview {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 62px;
+  border-radius: 8px;
+  background: var(--c-bg-soft, rgba(128, 128, 128, .08));
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+.layout-option__preview i { position: absolute; display: block; border-radius: 3px; background: rgba(0, 113, 227, .35); }
+.layout-option__preview--sidebar i:nth-child(1) { left: 0; top: 0; bottom: 0; width: 26%; background: rgba(0, 113, 227, .28); }
+.layout-option__preview--sidebar i:nth-child(2) { left: 34%; right: 8%; top: 18%; height: 14%; }
+.layout-option__preview--topbar i:nth-child(1) { left: 0; right: 0; top: 0; height: 24%; background: rgba(0, 113, 227, .28); }
+.layout-option__preview--topbar i:nth-child(2) { left: 8%; right: 8%; top: 40%; height: 14%; }
+html[data-theme='dark'] .layout-option:hover { background: rgba(10, 132, 255, .1); }
+html[data-theme='dark'] .layout-option.active { background: rgba(10, 132, 255, .16); box-shadow: inset 0 0 0 1px rgba(138, 180, 255, .3); }
+
 </style>

@@ -1,6 +1,14 @@
 ﻿<template>
   <!-- --sidebar-w 实时同步侧边栏宽度 -->
-  <div class="app-layout" :style="{ '--sidebar-w': sidebarWVar }">
+  <div
+    class="app-layout"
+    :class="{
+      'is-nav-switching': navSwitching,
+      'nav-layout-topbar': displayedLayout === 'topbar' && !narrowScreen,
+      'nav-layout-sidebar': displayedLayout === 'sidebar' || narrowScreen
+    }"
+    :style="{ '--sidebar-w': sidebarWVar }"
+  >
     <header class="app-header" :class="{ 'is-map': isMapPage }">
       <div class="app-header__inner">
         <button class="app-header__menu-btn" @click="sidebarOpen = !sidebarOpen" aria-label="菜单">
@@ -12,8 +20,77 @@
           <span class="brand-text">CWFLY</span>
         </router-link>
 
+        <!-- ================= 顶部栏导航（layout = topbar） ================= -->
+        <div
+          v-if="displayedLayout === 'topbar' && !narrowScreen"
+          class="topbar-zone"
+          @mouseenter="cancelTopbarClose"
+          @mouseleave="scheduleTopbarClose"
+        >
+          <nav class="topbar-nav">
+            <router-link
+              to="/dashboard"
+              class="topbar-item"
+              :class="{ active: route.path === '/dashboard' }"
+              @mouseenter="closeTopbarPanel"
+            >
+              <span class="topbar-item__icon" v-html="icons.grid"></span>
+              <span>仪表盘</span>
+            </router-link>
+            <template v-for="group in topbarGroups" :key="group.title">
+              <button
+                type="button"
+                class="topbar-item"
+                :data-group="group.title"
+                :class="{ active: topbarActive === group.title }"
+                @mouseenter="openTopbarGroup(group.title, $event)"
+                @click="openTopbarGroup(group.title, $event)"
+              >
+                <span class="topbar-item__icon" v-html="group.icon"></span>
+                <span>{{ group.title }}</span>
+                <span
+                  class="topbar-item__arrow"
+                  :class="{ expanded: topbarActive === group.title }"
+                  v-html="icons.chevronRight"
+                ></span>
+              </button>
+            </template>
+          </nav>
+
+          <!-- 通栏下拉面板：left/width 与触发项关联；内容用 :key 交叉淡入淡出 -->
+          <Transition name="topbar-panel">
+            <div
+              v-if="topbarActive"
+              class="topbar-panel"
+              :style="topbarPanelStyle"
+              @mouseenter="cancelTopbarClose"
+              @mouseleave="scheduleTopbarClose"
+            >
+              <Transition name="topbar-content" mode="out-in">
+                <div class="topbar-panel__inner" :key="topbarActive">
+                  <div v-for="(col, ci) in topbarColumns" :key="ci" class="topbar-panel__col">
+                    <component
+                      :is="item.external ? 'a' : 'router-link'"
+                      v-for="item in col"
+                      :key="item.label"
+                      v-bind="item.external ? { href: item.path, target: '_blank', rel: 'noopener' } : { to: item.path }"
+                      class="topbar-link"
+                      :class="{ 'topbar-link--active': !item.external && route.path === item.path }"
+                      @click="closeTopbarPanel"
+                    >
+                      <span class="topbar-link__icon" v-html="item.icon"></span>
+                      <span>{{ item.label }}</span>
+                    </component>
+                  </div>
+                  <div v-if="!topbarColumns.length" class="topbar-panel__empty">暂无可用的菜单项</div>
+                </div>
+              </Transition>
+            </div>
+          </Transition>
+        </div>
+
         <div class="app-header__center">
-          <span class="page-title">{{ pageTitle }}</span>
+          <span v-if="displayedLayout !== 'topbar' || narrowScreen" class="page-title">{{ pageTitle }}</span>
         </div>
 
         <div class="app-header__actions">
@@ -56,32 +133,61 @@
     <div class="app-body">
       <div class="sidebar-overlay" :class="{ visible: sidebarOpen }" @click="sidebarOpen = false"></div>
 
-      <aside class="app-sidebar" :class="{ open: sidebarOpen }" ref="sidebarRef" :style="{ width: sidebarWidth, left: sidebarOpen ? '0' : undefined }">
+      <aside
+        v-if="displayedLayout === 'sidebar' || narrowScreen"
+        class="app-sidebar"
+        :class="{ open: sidebarOpen }"
+        ref="sidebarRef"
+        :style="{ width: narrowScreen ? '240px' : sidebarWidth, left: sidebarOpen ? '0' : undefined }"
+      >
         <div class="sidebar-resize-handle" @mousedown="startResize"></div>
 
-        <nav class="sidebar-nav">
-          <router-link to="/dashboard" class="nav-item nav-item--single" active-class="nav-item--active" @click="sidebarOpen = false">
+        <nav class="sidebar-nav" ref="sidebarNavRef">
+          <!-- 全局唯一的选中高亮块：只用 transform/width/height 平滑移动，禁止 transition: all -->
+          <span class="nav-highlight" :style="navHighlightStyle" aria-hidden="true"></span>
+
+          <router-link
+            to="/dashboard"
+            class="nav-item nav-item--single"
+            :class="{ 'nav-item--current': route.path === '/dashboard' }"
+            :ref="(el) => setNavItemRef(el, '/dashboard')"
+            @click="onNavClick"
+          >
             <span class="nav-icon" v-html="icons.grid"></span>
             <span class="nav-label">仪表盘</span>
           </router-link>
 
           <template v-for="group in navGroups" :key="group.title">
             <div class="nav-group" v-if="!group.adminOnly || (user.rating >= 8 && visibleItems(group).length > 0)">
-              <div class="nav-group-title" @click="toggleGroup(group.title)">
+              <div
+                class="nav-group-title"
+                :data-group="group.title"
+                :class="{ 'nav-group-title--open': expandedGroup === group.title }"
+                @click="toggleGroup(group.title)"
+              >
                 <span class="nav-group-icon" v-html="group.icon"></span>
                 <span class="nav-group-label">{{ group.title }}</span>
-                <span class="nav-group-arrow" :class="{ expanded: expandedGroups.has(group.title) }" v-html="icons.chevron"></span>
+                <span
+                  class="nav-group-arrow"
+                  :class="{ expanded: expandedGroup === group.title }"
+                  v-html="icons.chevronRight"
+                ></span>
               </div>
-              <div class="nav-group-items" :class="{ 'nav-group-items--collapsed': !expandedGroups.has(group.title) }">
+              <div
+                class="nav-group-items"
+                :class="{ 'nav-group-items--collapsed': expandedGroup !== group.title }"
+              >
                 <div class="nav-group-items-inner">
                   <component
                     :is="item.external ? 'a' : 'router-link'"
-                    v-for="item in visibleItems(group)"
+                    v-for="(item, idx) in visibleItems(group)"
                     :key="item.label"
                     v-bind="item.external ? { href: item.path, target: '_blank', rel: 'noopener' } : { to: item.path }"
                     class="nav-item"
-                    :active-class="item.external ? '' : 'nav-item--active'"
-                    @click="sidebarOpen = false"
+                    :class="{ 'nav-item--current': !item.external && route.path === item.path }"
+                    :style="{ '--i': idx }"
+                    :ref="(el) => setNavItemRef(el, item.path)"
+                    @click="onNavClick"
                   >
                     <span class="nav-item-icon" v-html="item.icon"></span>
                     <span class="nav-item-label">{{ item.label }}</span>
@@ -124,12 +230,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { useMapSettingsStore } from '@/store/mapSettings'
 import { profileApi } from '@/api'
 import { themeMode, setThemeMode, applyTheme as applyGlobalTheme, scheduleApplyTheme, isDarkTheme } from '@/utils/theme'
+import { navLayout, narrowScreen, effectiveNavLayout, setNavLayout, initNavLayout } from '@/utils/navLayout'
 
 // ---------------------------------------------------------------------------
 // 依赖注入
@@ -152,9 +259,9 @@ const sidebarWidth = ref('240px')
 
 // 地图等 fixed 定位页面通过 CSS 变量 --sidebar-w 跟随侧边栏宽度
 // 移动端侧边栏为抽屉(不占位) → 置 0 让地图全屏
-const isMobile = ref(typeof window !== 'undefined' && window.innerWidth <= 768)
-function updateViewport() { isMobile.value = window.innerWidth <= 768 }
-const sidebarWVar = computed(() => isMobile.value ? '0px' : sidebarWidth.value)
+const isMobile = ref(typeof window !== 'undefined' && window.innerWidth <= 860)
+function updateViewport() { isMobile.value = window.innerWidth <= 860 }
+const sidebarWVar = computed(() => (isMobile.value || displayedLayout.value === 'topbar') ? '0px' : sidebarWidth.value)
 
 // 品牌 Logo: 深色模式用深色版, 浅色模式用浅色版(与主题联动)
 const isDarkNow = ref(isDarkTheme())
@@ -164,8 +271,223 @@ function syncBrandTheme() {
   isDarkNow.value = isDarkTheme()
 }
 
-// 已展开的导航分组
-const expandedGroups = ref(new Set(['飞行中心', '活动中心', '申请', '帮助与支持']))
+// ---------------------------------------------------------------------------
+// 导航布局（侧边栏 ⇄ 顶部栏）/ 手风琴 / 滑动高亮
+// ---------------------------------------------------------------------------
+const displayedLayout = ref('sidebar')   // 实际挂载的布局（切换过渡的中段才替换）
+const navSwitching = ref(false)          // 三段式过渡进行中
+let layoutSwitchSeq = 0                  // 快速连点收敛用序号
+const expandedGroup = ref('')            // 手风琴：同一时间只展开一个分组
+
+// --- 侧边栏滑动高亮 ---
+const sidebarNavRef = ref(null)
+const navHighlightStyle = ref({ opacity: 0 })
+const navItemEls = new Map()
+
+function setNavItemRef(el, key) {
+  const dom = el && el.$el ? el.$el : el
+  if (dom) navItemEls.set(key, dom)
+  else navItemEls.delete(key)
+}
+
+const activeNavKey = computed(() => {
+  const path = route.path
+  if (path === '/dashboard') return '/dashboard'
+  for (const group of navGroups) {
+    for (const item of visibleItems(group)) {
+      if (!item.external && (path === item.path || path.startsWith(item.path + '/'))) return item.path
+    }
+  }
+  return ''
+})
+
+function updateNavHighlight() {
+  const nav = sidebarNavRef.value
+  if (!nav || displayedLayout.value !== 'sidebar') {
+    navHighlightStyle.value = { opacity: 0 }
+    return
+  }
+  const key = activeNavKey.value
+  const el = key ? navItemEls.get(key) : null
+  if (!el) {
+    navHighlightStyle.value = { opacity: 0 }
+    return
+  }
+  // 目标项在收起的分组里时先隐藏，等手风琴展开动画结束再量
+  const group = navGroups.find((g) => g.items.some((i) => i.path === key))
+  if (group && expandedGroup.value !== group.title) {
+    navHighlightStyle.value = { opacity: 0 }
+    return
+  }
+  // 单元素高亮：直接改 transform/width/height，浏览器会从当前位置继续过渡（不重置起点）
+  navHighlightStyle.value = {
+    opacity: 1,
+    width: el.offsetWidth + 'px',
+    height: el.offsetHeight + 'px',
+    transform: `translate(${el.offsetLeft}px, ${el.offsetTop}px)`,
+  }
+}
+
+function syncActiveGroup() {
+  const key = activeNavKey.value
+  const group = navGroups.find((g) => g.items.some((i) => i.path === key))
+  if (group) {
+    expandedGroup.value = group.title
+    return
+  }
+  // 当前路由不在任何分组（如仪表盘）：默认只展开第一个可分组
+  if (!expandedGroup.value) {
+    const first = navGroups.find((g) => !g.adminOnly && visibleItems(g).length > 0)
+    if (first) expandedGroup.value = first.title
+  }
+}
+
+let highlightSyncTimer = null
+function scheduleHighlightSync(delay = 520) {
+  if (highlightSyncTimer) clearTimeout(highlightSyncTimer)
+  highlightSyncTimer = setTimeout(() => {
+    highlightSyncTimer = null
+    updateNavHighlight()
+  }, delay)
+}
+
+// --- 手风琴：展开当前组，收起其余组（保持单组展开） ---
+function toggleGroup(title) {
+  expandedGroup.value = expandedGroup.value === title ? '' : title
+  nextTick(() => {
+    updateNavHighlight()
+    scheduleHighlightSync(460)
+  })
+}
+
+function onNavClick() {
+  if (narrowScreen.value) sidebarOpen.value = false
+}
+
+// --- 顶部栏下拉面板 ---
+const topbarActive = ref('')
+const topbarRect = ref({ left: 0, width: 360 })
+let topbarCloseTimer = null
+
+const topbarGroups = computed(() =>
+  navGroups.filter((g) => !g.adminOnly || (user.rating >= 8 && visibleItems(g).length > 0)),
+)
+
+const topbarColumns = computed(() => {
+  const group = navGroups.find((g) => g.title === topbarActive.value)
+  if (!group) return []
+  const items = visibleItems(group)
+  if (items.length <= 3) return [items]
+  // 均衡分列：4 个以内一列，更多则按 ≤4/列 均分（如 5 → 3+2，7 → 4+3）
+  const colCount = Math.ceil(items.length / 4)
+  const per = Math.ceil(items.length / colCount)
+  const cols = []
+  for (let i = 0; i < items.length; i += per) cols.push(items.slice(i, i + per))
+  return cols
+})
+
+const topbarPanelStyle = computed(() => ({
+  left: Math.round(topbarRect.value.left) + 'px',
+  width: Math.round(topbarRect.value.width) + 'px',
+}))
+
+function openTopbarGroup(title, event) {
+  if (narrowScreen.value) return
+  cancelTopbarClose()
+  const el = event?.currentTarget || event?.target
+  if (topbarActive.value === title) return
+  topbarActive.value = title
+  if (el && el.getBoundingClientRect) {
+    const rect = el.getBoundingClientRect()
+    const width = Math.max(Math.round(rect.width) + 80, 360)
+    const maxLeft = window.innerWidth - width - 12
+    topbarRect.value = {
+      left: Math.max(12, Math.min(Math.round(rect.left), Math.max(12, maxLeft))),
+      width,
+    }
+  }
+}
+
+function closeTopbarPanel() {
+  topbarActive.value = ''
+}
+
+function scheduleTopbarClose() {
+  if (topbarCloseTimer) clearTimeout(topbarCloseTimer)
+  topbarCloseTimer = setTimeout(closeTopbarPanel, 160)
+}
+
+function cancelTopbarClose() {
+  if (topbarCloseTimer) {
+    clearTimeout(topbarCloseTimer)
+    topbarCloseTimer = null
+  }
+}
+
+// --- 布局切换：淡出 → 替换 DOM 布局 → 淡入（避免 margin/宽度突变导致闪烁） ---
+function runLayoutSwap(target) {
+  if (target === displayedLayout.value) return
+  const seq = ++layoutSwitchSeq
+  navSwitching.value = true
+  closeTopbarPanel()
+  setTimeout(() => {
+    if (seq !== layoutSwitchSeq) return
+    displayedLayout.value = target
+    nextTick(() => {
+      syncActiveGroup()
+      updateNavHighlight()
+      requestAnimationFrame(() => {
+        if (seq !== layoutSwitchSeq) return
+        navSwitching.value = false
+      })
+    })
+  }, 190)
+}
+
+watch(effectiveNavLayout, (to) => {
+  if (to === displayedLayout.value) {
+    // 过渡中又切回原布局：取消挂起动画，保证状态收敛
+    layoutSwitchSeq++
+    navSwitching.value = false
+    return
+  }
+  runLayoutSwap(to)
+})
+
+watch(narrowScreen, (narrow) => {
+  if (narrow) {
+    displayedLayout.value = 'sidebar'
+    navSwitching.value = false
+    layoutSwitchSeq++
+  }
+})
+
+watch(
+  () => route.path,
+  () => {
+    syncActiveGroup()
+    nextTick(() => {
+      updateNavHighlight()
+      scheduleHighlightSync()
+    })
+  },
+)
+
+watch(expandedGroup, () => {
+  nextTick(() => {
+    updateNavHighlight()
+    scheduleHighlightSync()
+  })
+})
+
+const onEscapeKey = (e) => {
+  if (e.key === 'Escape') closeTopbarPanel()
+}
+
+const onWindowResize = () => {
+  closeTopbarPanel()
+  updateNavHighlight()
+}
 
 // ---------------------------------------------------------------------------
 // UTC 时钟（Apple 风格）
@@ -226,9 +548,15 @@ function tickTheme() {
 }
 
 onMounted(() => {
+  initNavLayout()
+  displayedLayout.value = effectiveNavLayout.value
+  syncActiveGroup()
+  nextTick(updateNavHighlight)
+  document.addEventListener('keydown', onEscapeKey)
   updateUtcClock()
   clockTimer = setInterval(updateUtcClock, 1000)
   window.addEventListener('resize', updateViewport)
+  window.addEventListener('resize', onWindowResize)
   // 主题初始化 + auto 定时检查（7:00 / 19:00 边界自动切换配色）
   applyGlobalTheme()
   syncBrandTheme()
@@ -243,10 +571,14 @@ onMounted(() => {
 onUnmounted(() => {
   if (clockTimer) clearInterval(clockTimer)
   window.removeEventListener('resize', updateViewport)
+  window.removeEventListener('resize', onWindowResize)
   if (themeTimer) clearInterval(themeTimer)
   if (themeCollapseTimer) clearTimeout(themeCollapseTimer)
   if (mapSettingsTimer) clearTimeout(mapSettingsTimer)
   if (window.__cwThemeObserver) { window.__cwThemeObserver.disconnect(); window.__cwThemeObserver = null }
+  document.removeEventListener('keydown', onEscapeKey)
+  if (highlightSyncTimer) clearTimeout(highlightSyncTimer)
+  if (topbarCloseTimer) clearTimeout(topbarCloseTimer)
 })
 
 // ---------------------------------------------------------------------------
@@ -346,15 +678,6 @@ function stopResize() {
 }
 
 // ---------------------------------------------------------------------------
-// 导航分组折叠
-// ---------------------------------------------------------------------------
-function toggleGroup(title) {
-  const next = new Set(expandedGroups.value)
-  next.has(title) ? next.delete(title) : next.add(title)
-  expandedGroups.value = next
-}
-
-// ---------------------------------------------------------------------------
 // 可见子项过滤
 // ---------------------------------------------------------------------------
 function visibleItems(group) {
@@ -384,6 +707,7 @@ const icons = {
   bell: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
   grid: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
   chevron: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>',
+  chevronRight: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>',
   profile: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
   admin: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
   logout: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
@@ -887,7 +1211,7 @@ html[data-theme='dark'] .map-settings-panel {
 .sidebar-resize-handle:hover,
 .sidebar-resize-handle:active { background: var(--c-primary); }
 
-@media (max-width: 768px) {
+@media (max-width: 860px) {
   .sidebar-resize-handle { display: none; }
   .app-sidebar { width: 240px !important; position: fixed; top: var(--header-h); z-index: 901; height: calc(100vh - var(--header-h)); left: -260px; transition: left .3s ease; }
   .app-sidebar.open { left: 0; }
@@ -898,6 +1222,7 @@ html[data-theme='dark'] .map-settings-panel {
   flex: 1;
   overflow-y: auto;
   padding: 8px;
+  position: relative;
 }
 
 .nav-group { margin-bottom: 2px; }
@@ -916,6 +1241,8 @@ html[data-theme='dark'] .map-settings-panel {
   transition: background .15s;
 }
 .nav-group-title:hover { background: #f5f7fa; }
+.nav-group-title--open { color: #1769d2; }
+.nav-group-title--open .nav-group-icon { color: #1769d2; }
 
 .nav-group-icon,
 .nav-item-icon {
@@ -933,16 +1260,26 @@ html[data-theme='dark'] .map-settings-panel {
   color: var(--c-text-secondary);
   transition: transform .2s;
 }
-.nav-group-arrow.expanded { transform: rotate(180deg); }
+.nav-group-arrow.expanded { transform: rotate(90deg); }
 
 /* 一级下拉折叠/展开动画(500ms): grid-template-rows 平滑收起 */
 .nav-group-items {
   display: grid;
   grid-template-rows: 1fr;
-  transition: grid-template-rows .5s ease, opacity .5s ease;
+  transition: grid-template-rows .42s cubic-bezier(.4, 0, .2, 1), opacity .3s ease;
 }
 .nav-group-items--collapsed { grid-template-rows: 0fr; opacity: 0; }
 .nav-group-items-inner { overflow: hidden; min-height: 0; }
+
+/* 子项错峰出现：--i 由模板写入，每个 50ms */
+.nav-group-items:not(.nav-group-items--collapsed) .nav-item {
+  animation: navChildIn .34s cubic-bezier(.22, .61, .36, 1) both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+@keyframes navChildIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /* 导航项 — 单行（仪表盘） */
 .nav-item--single {
@@ -986,24 +1323,37 @@ html[data-theme='dark'] .map-settings-panel {
   text-decoration: none;
 }
 
-/* 激活态 */
-.nav-item--active {
+/* 滑动高亮块：全局唯一，只对 transform/width/height/opacity 做过渡 */
+.nav-highlight {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  border-radius: 8px;
   background: #eaf2ff;
+  box-shadow: inset 0 0 0 1px rgba(23, 105, 210, .14);
+  pointer-events: none;
+  will-change: transform, width, height;
+  transition:
+    transform .34s cubic-bezier(.22, .61, .36, 1),
+    width .34s cubic-bezier(.22, .61, .36, 1),
+    height .34s cubic-bezier(.22, .61, .36, 1),
+    opacity .18s ease;
+}
+
+/* 导航项统一置于高亮块之上 */
+.nav-item,
+.nav-item--single { z-index: 1; }
+
+/* 选中态只改文字/图标色，不再画每项背景 */
+.nav-item--current {
   color: #1769d2;
   font-weight: 600;
 }
-.nav-item--active .nav-item-icon { color: #1769d2; }
-.nav-item--active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 6px; bottom: 6px;
-  width: 3px;
-  background: #1769d2;
-  border-radius: 0 3px 3px 0;
-}
+.nav-item--current .nav-item-icon,
+.nav-item--current .nav-icon { color: #1769d2; }
 
-/* 深色模式: 侧边栏导航 hover/激活 柔和化 */
+/* 深色模式: 侧边栏导航 hover 柔和化 + 高亮块 */
 html[data-theme='dark'] .nav-group-title:hover {
   background: rgba(255, 255, 255, .08);
   color: var(--c-text);
@@ -1013,12 +1363,15 @@ html[data-theme='dark'] .nav-item:hover {
   background: rgba(255, 255, 255, .08);
   color: var(--c-text);
 }
-html[data-theme='dark'] .nav-item--active {
+html[data-theme='dark'] .nav-highlight {
   background: rgba(10, 132, 255, .22);
-  color: #8ab4ff;
+  box-shadow: inset 0 0 0 1px rgba(138, 180, 255, .28);
 }
-html[data-theme='dark'] .nav-item--active .nav-item-icon { color: #8ab4ff; }
-html[data-theme='dark'] .nav-item--active::before { background: #8ab4ff; }
+html[data-theme='dark'] .nav-item--current { color: #8ab4ff; }
+html[data-theme='dark'] .nav-item--current .nav-item-icon,
+html[data-theme='dark'] .nav-item--current .nav-icon { color: #8ab4ff; }
+html[data-theme='dark'] .nav-group-title--open { color: #8ab4ff; }
+html[data-theme='dark'] .nav-group-title--open .nav-group-icon { color: #8ab4ff; }
 
 /* ---------- 底部用户 ---------- */
 .sidebar-footer {
@@ -1106,6 +1459,7 @@ html[data-theme='dark'] .sidebar-user:hover {
 
 /* ---------- 内容区 ---------- */
 .app-content {
+  transition: opacity .24s ease;
   flex: 1;
   padding: 0;
   min-height: calc(100vh - var(--header-h));
@@ -1149,6 +1503,153 @@ html[data-theme='dark'] .sidebar-user:hover {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ================= 导航布局切换（三段式，防跳动） ================= */
+.app-layout.is-nav-switching .app-sidebar,
+.app-layout.is-nav-switching .topbar-zone,
+.app-layout.is-nav-switching .app-content {
+  opacity: 0;
+  transition: opacity .19s ease;
+  pointer-events: none;
+}
+.app-sidebar,
+.topbar-zone {
+  transition: opacity .24s ease;
+}
+
+/* ================= 顶部栏导航 ================= */
+.topbar-zone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+}
+.topbar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--c-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color .18s ease, color .18s ease;
+}
+.topbar-item:hover,
+.topbar-item.active {
+  background: rgba(0, 113, 227, .1);
+  color: var(--c-primary);
+  text-decoration: none;
+}
+.topbar-item__icon {
+  display: flex;
+  align-items: center;
+  color: currentColor;
+}
+.topbar-item__arrow {
+  display: flex;
+  align-items: center;
+  transition: transform .2s ease;
+}
+.topbar-item__arrow.expanded { transform: rotate(90deg); }
+
+/* 下拉面板：位置/宽度与触发项关联（left/width 由 JS 计算） */
+.topbar-panel {
+  position: fixed;
+  top: var(--header-h);
+  z-index: 1200;
+  padding: 14px;
+  display: flex;
+  gap: 18px;
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border-strong);
+  border-top: none;
+  border-radius: 0 0 16px 16px;
+  box-shadow: var(--glass-highlight), var(--glass-shadow-lg);
+  transform-origin: top left;
+  transition: left .18s ease, width .18s ease;
+}
+.topbar-panel__inner {
+  display: flex;
+  gap: 18px;
+  width: 100%;
+}
+.topbar-panel__col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 168px;
+  flex: 1;
+}
+.topbar-panel__empty {
+  padding: 8px;
+  font-size: 13px;
+  color: var(--c-text-muted);
+}
+.topbar-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--c-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color .15s ease, color .15s ease;
+}
+.topbar-link:hover,
+.topbar-link--active {
+  background: rgba(0, 113, 227, .1);
+  color: var(--c-primary);
+  text-decoration: none;
+}
+.topbar-link__icon { display: flex; align-items: center; color: currentColor; }
+html[data-theme='dark'] .topbar-item:hover,
+html[data-theme='dark'] .topbar-item.active { background: rgba(10, 132, 255, .22); color: #8ab4ff; }
+html[data-theme='dark'] .topbar-link:hover,
+html[data-theme='dark'] .topbar-link--active { background: rgba(10, 132, 255, .22); color: #8ab4ff; }
+html[data-theme='dark'] .topbar-panel { border-color: rgba(255, 255, 255, .14); }
+
+/* 面板/内容过渡（切换菜单项时面板不关闭，只交叉淡入内容） */
+.topbar-panel-enter-active,
+.topbar-panel-leave-active {
+  transition: opacity .16s ease, transform .16s ease;
+}
+.topbar-panel-enter-from,
+.topbar-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.topbar-content-enter-active,
+.topbar-content-leave-active {
+  transition: opacity .14s ease, transform .14s ease;
+}
+.topbar-content-enter-from { opacity: 0; transform: translateY(-4px); }
+.topbar-content-leave-to { opacity: 0; transform: translateY(4px); }
+
+/* ================= 窄屏（< 860px）强制侧边栏抽屉 ================= */
+@media (max-width: 860px) {
+  .app-header__menu-btn { display: flex; }
+  .topbar-zone { display: none; }
 }
 
 /* ---------- 响应式 ---------- */
