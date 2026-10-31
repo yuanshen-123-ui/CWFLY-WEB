@@ -16,6 +16,8 @@
   <ToastBanner />
   <!-- 全局动作横幅（密码输入等控件，右侧滑入无进度条） -->
   <ActionBanner />
+  <!-- 隐身 PoW：不渲染任何 DOM，后台静默完成人机验证 -->
+  <PoWCaptcha />
 </template>
 
 <script setup>
@@ -49,7 +51,7 @@ let bgTimer = null
 let customCheckTimer = null
 
 // 主题固定背景: 手动浅色→eve_3, 手动深色→nt_4; auto 时按北京时间时间表
-const THEME_FIXED_BG = { light: '/bg-home/eve_3.png', dark: '/bg-home/nt_4.png' }
+const THEME_FIXED_BG = { light: '/bg-home/eve_3.webp', dark: '/bg-home/nt_4.webp' }
 let themeFading = false          // 主题固定图淡入过渡中（暂停时间表刷新, 避免打断淡入）
 const themeFadingUi = ref(false) // 模板侧开关: 淡入期间禁用 layer1 的 CSS transition, 避免与 JS 驱动打架
 let themeRafId = null            // 当前淡入动画 rAF id（中途切换时取消旧动画）

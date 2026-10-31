@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { getDeviceFp } from '@/utils/deviceFp'
+import { applyPowHeader } from '@/utils/pow'
 import { isWithinActiveWindow } from '@/utils/jwt'
 import { showBanner, navigateToLoginAfterBanner } from '@/utils/banner'
 
@@ -20,6 +21,12 @@ api.interceptors.request.use(config => {
     config.headers['X-Device-Fp'] = getDeviceFp()
   } catch {
     /* 指纹不可用时忽略，不影响请求 */
+  }
+  // PoW 短期令牌（隐身旁路验证通过后才有；没有则不带该头）
+  try {
+    applyPowHeader(config.headers)
+  } catch {
+    /* 忽略 */
   }
   return config
 })

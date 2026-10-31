@@ -112,49 +112,86 @@ onUnmounted(() => {
 html[data-theme='dark'] .hero__content p {
   color: var(--c-text-secondary);
 }
-.hero__actions { display: flex; gap: 12px; justify-content: center; }
+.hero__actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .hero__actions a {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none;
   font-size: 14px;
-  font-weight: 500;
-  padding: 10px 24px;
-  border-radius: 20px;
-  transition: all .2s;
+  font-weight: 600;
+  padding: 11px 26px;
+  border-radius: 24px;
   cursor: pointer;
+  transform: translateZ(0);
+  will-change: transform;
+  transition: transform .22s var(--glass-spring), box-shadow .3s ease,
+              background-color .3s ease, background-image .3s ease,
+              border-color .3s ease, filter .3s ease;
 }
+.hero__actions a:hover { transform: translateY(-2px); }
+.hero__actions a:active { transform: scale(.94); transition-duration: .08s; }
+
 .hero__actions a.btn-primary {
-  background: #1d1d1f;
-  border: none;
+  background-image: linear-gradient(180deg, rgba(62, 62, 66, .96), rgba(20, 20, 22, .98));
+  border: 1px solid rgba(255, 255, 255, .22);
   color: #fff;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .45), 0 8px 28px rgba(0, 0, 0, .28);
 }
 .hero__actions a.btn-primary:hover {
-  background: #000;
-  transform: scale(1.02);
+  background-image: linear-gradient(180deg, rgba(76, 76, 82, .98), rgba(10, 10, 12, 1));
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .55), 0 14px 36px rgba(0, 0, 0, .35);
 }
+
 .hero__actions a.btn-outline {
-  background: rgba(255, 255, 255, .72); /* 半透明白: 浅色下接近白, 深色下柔和不刺眼 */
-  border: 1px solid var(--c-border);
-  color: #1d1d1f; /* 该按钮为浅底黑字品牌按钮, 文字固定黑色 */
+  background-color: rgba(255, 255, 255, .42);
+  background-image: var(--glass-sheen);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, .6);
+  color: #1d1d1f;
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 .hero__actions a.btn-outline:hover {
-  background: rgba(255, 255, 255, .92);
-  border-color: #1d1d1f;
+  background-color: rgba(255, 255, 255, .62);
+  border-color: rgba(255, 255, 255, .85);
+  box-shadow: var(--glass-highlight), var(--glass-shadow-lg);
 }
+
 .hero__actions a.btn-qq {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   text-decoration: none;
-  font-size: 14px; font-weight: 500;
-  padding: 10px 20px;
-  border-radius: 20px;
-  background: #12b7f5; color: #fff;
-  transition: all .2s;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 22px;
+  border-radius: 24px;
   cursor: pointer;
+  color: #fff;
+  background-image: linear-gradient(180deg, #37c4ff 0%, #12b7f5 55%, #0aa0d8 100%);
+  border: 1px solid rgba(255, 255, 255, .4);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .55), 0 8px 26px rgba(18, 183, 245, .35);
+  transition: transform .22s var(--glass-spring), box-shadow .3s ease, filter .3s ease;
 }
 .hero__actions a.btn-qq:hover {
-  background: #0da0d6;
-  transform: scale(1.02);
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .65), 0 14px 34px rgba(18, 183, 245, .45);
+  filter: saturate(1.08);
   text-decoration: none;
+}
+.hero__actions a.btn-qq:active { transform: scale(.94); transition-duration: .08s; }
+
+/* 深色模式：英雄区按钮换成深玻璃，文字提亮 */
+html[data-theme='dark'] .hero__actions a.btn-outline {
+  background-color: rgba(28, 28, 30, .5);
+  border-color: rgba(255, 255, 255, .2);
+  color: #f5f5f7;
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+html[data-theme='dark'] .hero__actions a.btn-outline:hover {
+  background-color: rgba(38, 38, 42, .68);
+  border-color: rgba(255, 255, 255, .32);
 }
 
 .section { padding: 48px 24px; }

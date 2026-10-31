@@ -127,3 +127,44 @@ pm2 reload cwfly-api-py 2>/dev/null || pm2 restart cwfly-api-py 2>/dev/null
 - `SOCKETIO_REDIS_URL=redis://127.0.0.1:6379/0`（API 与 worker 都要设置，天气共享缓存也依赖它）；
 - CORS/Socket.IO 允许来源：`https://www.cwflysim.cn` + `https://cwflysim.cn`（裸域）+ 开发地址（仅非生产），
   修复了裸域用户 Socket.IO 被 engineio 以 `not an accepted origin` 拒绝导致的反复重连/卡顿。
+
+## 十一、前端首屏资源优化（2026-10-31 第三轮）
+
+首页按时段轮换的 15 张飞机背景图原本是 **2560x1600 PNG（3.0~3.7 MB/张，合计 48.3 MB）**，
+是「进页面白屏/转圈很久」的直接原因（单张 ≈ 3.8MB，跨国网络下 3~10 秒）。
+
+| 项 | 优化前 | 优化后 |
+|---|---|---|
+| 单张背景图 | 3.0~3.7 MB PNG | **39~85 KB WebP**（1920x1200，质量 82） |
+| 15 张合计 | 48.3 MB | **0.94 MB（51.5x）** |
+| 首屏关键传输（HTML+JS+CSS+1 张背景） | ≈ 3.92 MB | **174 KB** |
+| `/bg-home/` 缓存 | 无 | `Cache-Control: max-age=2592000`（30 天） |
+| 旧客户端（浏览器缓存旧 JS 仍请求 .png） | 3.8MB | nginx **301 → .webp**（同样 87KB） |
+| 仓库 public 体积 | 261.6 MB | 114.6 MB（删除 46 个未引用的重复 PNG） |
+
+- 源码：`frontend/src/utils/timeBg.js` 引用改为 `.webp`；`frontend/public/bg-home/*.webp` 为压缩产物；
+- 服务端：`/opt/cwfly/frontend/dist/bg-home/*.webp` + 构建产物 JS 内引用替换（`png`→`webp`）；
+  原 PNG 仍保留在 dist 作为兜底（nginx 已 301 到 webp，实际不会再传大图）；
+- nginx：`location /bg-home/` 30 天缓存；`location ~ ^/bg-home/xxx.png$` → 301 webp。
+
+## 十二、隐身旁路 PoW 人机验证（2026-10-31）
+
+| 项 | 说明 |
+|---|---|
+| 后端 | `app/routers/captcha.py`：`GET /api/captcha/challenge`、`POST /api/captcha/verify`、`GET /api/captcha/status`；`require_pow_token` 依赖校验 `X-PoW-Token` |
+| 算法 | `sha256(challenge + nonce)` 前导 4 个十六进制 0（约 6.5 万次哈希，实测 ~0.1s） |
+| 存储 | 进程内存字典 + Redis 镜像（`cwfly:pow:*`，多 worker 一致；Redis 不可用自动回退内存） |
+| 防重放 | 验证前原子 pop（Redis 用 Lua GET+DEL），同一 challenge 只能使用一次 |
+| 令牌 | 通过后签发 10 分钟短期 JWT（HS256，复用按天轮换签名密钥，`typ=pow`） |
+| 前端 | `src/workers/pow.worker.js`（手写同步 SHA-256，无第三方、无 crypto.subtle）、`src/components/PoWCaptcha.vue`（render 返回 null，不渲染任何 DOM）、`src/utils/pow.js`（内存令牌 + 请求头注入） |
+| CSP | 必须允许 `worker-src 'self' blob:;`（原先仅 `blob:` 会拦截 Worker）；已在主站/API vhost 更新 |
+| 失败策略 | 全静默：网络/超时/校验失败均退避重试（3~8s 随机），令牌 8 分钟静默续算 |
+
+使用方式：在需要人机验证的路由上加上依赖：
+
+```python
+from app.routers.captcha import require_pow_token
+
+@router.post("/xxx", dependencies=[Depends(require_pow_token)])
+async def some_action(): ...
+```

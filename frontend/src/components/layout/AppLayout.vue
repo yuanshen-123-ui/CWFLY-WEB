@@ -478,11 +478,12 @@ const navGroups = [
   top: 0; left: 0; right: 0;
   z-index: 900;
   height: var(--header-h);
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  background-color: var(--glass-bg-strong);
+  background-image: var(--glass-sheen);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid var(--glass-border-strong);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 
 .app-header__inner {

@@ -80,12 +80,13 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   left: 0;
   right: 0;
   height: var(--header-h);
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+  background-color: var(--glass-bg-strong);
+  background-image: var(--glass-sheen);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid var(--glass-border-strong);
   z-index: 1000;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
 }
 
 .portal-nav__inner {

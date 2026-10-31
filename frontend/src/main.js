@@ -9,6 +9,7 @@ import tableSort from './utils/tableSort'
 import { showBanner, navigateToLoginAfterBanner } from './utils/banner'
 import ToastBanner from './components/ToastBanner.vue'
 import ActionBanner from './components/ActionBanner.vue'
+import PoWCaptcha from './components/PoWCaptcha.vue'
 import './assets/global.css'
 
 const app = createApp(App)
@@ -20,6 +21,8 @@ app.directive('sort', tableSort)
 app.component('ToastBanner', ToastBanner)
 // 全局动作横幅（密码输入等控件，右侧滑入无进度条）
 app.component('ActionBanner', ActionBanner)
+// 隐身 PoW 人机验证（不渲染任何 DOM）
+app.component('PoWCaptcha', PoWCaptcha)
 app.config.globalProperties.$banner = showBanner
 // 全局错误兜底：组件渲染/生命周期报错 → 红横幅提示
 app.config.errorHandler = (err) => {
