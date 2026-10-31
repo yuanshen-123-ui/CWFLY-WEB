@@ -121,3 +121,9 @@
 - **单测扩到 13 文件 / 232 用例**：新增地图核心（GCJ-02/图层/配置）、Mapbox 降级决策、在线地图数据轮询、导航权限与高亮 4 组测试
 - **Mapbox 3D 令牌缺失优雅降级**：无 token / 401 / invalid access token 时自动回退 2D 高德、3D 入口置灰并提示，只回退一次（会话标记）
 - 修复：`@vue/devtools-api` 显式声明（pinia peer，缺失会导致全新安装后构建失败）；`vitest.config.js` include 增加 composables 测试目录
+
+## 2026-10-31 晚 · 功能调整
+
+- **删除「航迹回放」**：移除页面 `views/Replay.vue`、路由 `/replay`、导航「航迹回放」入口与图标注册（后端航迹采样接口保留，如需停用请另行确认）
+- **登录提交按钮重做**：矩形按钮提交时形变为圆球 —— 加载中蓝色旋转环、成功绿色对勾、失败红色叉号；不再显示「提交中/提交成功」等文字文案（保留 sr-only 无障碍状态），成功态停留 650ms→950ms 便于看清对勾
+- 影响范围：`components/SubmitButton.vue`（登录/注册共用）、`views/auth/Login.vue`

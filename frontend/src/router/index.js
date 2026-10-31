@@ -56,8 +56,7 @@ const routes = [
       { path: 'flight-plan', name: 'FlightPlan', meta: { title: '飞行计划' }, component: () => import('@/views/FlightPlan.vue') },
       { path: 'flight-plan/share/:shareId', name: 'FlightPlanShare', meta: { title: '共享飞行计划' }, component: () => import('@/views/FlightPlan.vue') },
       { path: 'charts', name: 'Charts', meta: { title: '航情查询' }, component: () => import('@/views/Charts.vue') },
-      { path: 'replay', name: 'Replay', meta: { title: '航迹回放' }, component: () => import('@/views/Replay.vue') },
-      // 新功能页面
+          // 新功能页面
       { path: 'notifications', name: 'Notifications', meta: { title: '通知中心' }, component: () => import('@/views/notifications/Notifications.vue') },
       { path: 'flight-archive', name: 'FlightArchive', meta: { title: '飞行档案' }, component: () => import('@/views/flight/FlightArchive.vue') },
       { path: 'points', name: 'Points', meta: { title: '积分成就' }, component: () => import('@/views/points/Points.vue') },

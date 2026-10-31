@@ -45,7 +45,6 @@ const ICON_PATHS = Object.freeze({
   flightPlan: menu('/flight-plan'),
   archive: menu('/flight-archive'),
   charts: menu('/charts'),
-  replay: menu('/replay'),
   map: menu('/map'),
   globe: menu('/network'),
   check: menu('/my-registrations'),

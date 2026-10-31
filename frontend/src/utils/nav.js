@@ -38,7 +38,6 @@ export const navGroups = [
       { path: '/flight-plan', label: '飞行计划', desc: '提交与查看连飞计划', icon: S('<path d="M12 19V5M5 12l7-7 7 7"/>') },
       { path: '/flight-archive', label: '飞行档案', desc: '历史航班与飞行记录', icon: S('<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>') },
       { path: '/charts', label: '航情查询', desc: '机场、航路与航图数据', icon: S('<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>') },
-      { path: '/replay', label: '航迹回放', desc: '复盘飞行轨迹与事件', icon: S('<path d="M3 12h4l3-8 4 16 3-8h4"/>') },
     ],
   },
   {
