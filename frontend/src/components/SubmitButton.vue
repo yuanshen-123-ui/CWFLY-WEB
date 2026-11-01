@@ -1,19 +1,22 @@
 <script setup>
 /**
- * 登录提交按钮 —— 形变状态机。
+ * 登录提交按钮 —— 形变状态机（v3：从两侧向中间收缩）。
  *
- * 交互设计（2026-11 收口 · v2）：
- *   idle    长方形按钮（宽度撑满，显示文案）
- *   loading 向中间收缩成圆球 + 旋转加载环（不显示任何文字）
- *   success 绿色圆球 + 白色对勾（描边绘制动画）
- *   error   红色圆球 + 白色叉号（抖动 + 描边绘制）
+ * 形变方式：
+ *   按钮放在一个「占满整行、水平居中」的网格容器里，形变时只动画按钮自身宽度。
+ *   由于容器居中：左边缘向右、右边缘向左，同时向中间收缩成圆球（不是从一侧缩）。
  *
- * - 收缩/展开由外层「定宽居中容器」负责：按钮从 100% 宽收成 48px 圆球时，
- *   因容器 justify-content:center，视觉上是从两端向中间收缩（而不是靠左缩）。
- * - 动效偏慢（0.75s 形变 / 0.6s 勾叉绘制），让用户看清状态变化。
- * - error 1.4s、success 2.2s 后 emit('settle')，由父组件决定是否置回 idle。
+ * 状态：
+ *   idle    长方形（显示文字）
+ *   loading 圆球 + 慢速旋转环（无文字）
+ *   success 绿色圆球 + 白色对勾（描边绘制，0.6s）
+ *   error   红色圆球 + 白色叉号（两笔错峰绘制）
+ *
+ * 体验保护：服务端响应很快时（登录失败常在 100ms 内返回），会先把「收缩」播完
+ * （最少 MIN_MORPH_MS），再显示成功/失败图标，确保用户看得到「从两侧收成圆球」的过程。
+ *
  * - 尊重 prefers-reduced-motion：不做形变/抖动，只切换颜色与图标。
- * - 无障碍：保留 sr-only 实时状态，按钮 aria-label 随状态更新。
+ * - 无障碍：保留 sr-only 实时状态，aria-label 随显示状态更新。
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
 
@@ -29,34 +32,75 @@ const emit = defineEmits(['settle'])
 
 const ERROR_SETTLE_MS = 1400
 const SUCCESS_SETTLE_MS = 2200
+/** 收缩动画最短展示时长（ms）：保证「两侧向中间收」完整可见 */
+const MIN_MORPH_MS = 700
+
+/** 实际用于渲染的状态（可能比 props.status 稍晚，用于播完收缩动画） */
+const displayStatus = ref(props.status)
+
+let morphStartAt = 0
+let pendingTimer = null
+let settleTimer = null
+
+function clearTimer(timer) {
+  if (timer) clearTimeout(timer)
+  return null
+}
+
+function scheduleSettle(status) {
+  settleTimer = clearTimer(settleTimer)
+  if (status === 'error') {
+    settleTimer = setTimeout(() => emit('settle'), ERROR_SETTLE_MS)
+  } else if (status === 'success') {
+    settleTimer = setTimeout(() => emit('settle'), SUCCESS_SETTLE_MS)
+  }
+}
+
+function applyStatus(next) {
+  displayStatus.value = next
+  scheduleSettle(next)
+}
+
+watch(() => props.status, (next) => {
+  pendingTimer = clearTimer(pendingTimer)
+  settleTimer = clearTimer(settleTimer)
+
+  if (next === 'idle') {
+    displayStatus.value = 'idle'
+    morphStartAt = 0
+    return
+  }
+
+  if (next === 'loading') {
+    morphStartAt = Date.now()
+    displayStatus.value = 'loading'
+    return
+  }
+
+  // success / error：若收缩刚开始，先等收缩播完再切图标与颜色
+  if (!morphStartAt) morphStartAt = Date.now()
+  const elapsed = Date.now() - morphStartAt
+  if (elapsed >= MIN_MORPH_MS) {
+    applyStatus(next)
+  } else {
+    pendingTimer = setTimeout(() => applyStatus(props.status), MIN_MORPH_MS - elapsed)
+  }
+})
+
+onUnmounted(() => {
+  pendingTimer = clearTimer(pendingTimer)
+  settleTimer = clearTimer(settleTimer)
+})
 
 const srText = computed(() => ({
   loading: '提交中',
   success: '提交成功',
   error: '提交失败，请重试',
-}[props.status] || ''))
+}[displayStatus.value] || ''))
 
-const ariaLabel = computed(() => srText.value || props.label)
+const ariaLabel = computed(() => props.status === 'idle' ? props.label : (srText.value || props.label))
 const disabled = computed(() => props.status === 'loading' || props.status === 'success')
 const isMorph = computed(() => props.status !== 'idle')
-
-let settleTimer = null
-function clearSettleTimer() {
-  if (settleTimer) {
-    clearTimeout(settleTimer)
-    settleTimer = null
-  }
-}
-
-watch(() => props.status, (s) => {
-  clearSettleTimer()
-  if (s === 'error') {
-    settleTimer = setTimeout(() => emit('settle'), ERROR_SETTLE_MS)
-  } else if (s === 'success') {
-    settleTimer = setTimeout(() => emit('settle'), SUCCESS_SETTLE_MS)
-  }
-})
-onUnmounted(clearSettleTimer)
 
 /** 按下反馈（仅 idle 态有意义） */
 const pressed = ref(false)
@@ -69,37 +113,33 @@ function onPointerUp() {
 </script>
 
 <template>
-  <!-- 定宽居中容器：idle 时按钮撑满；形变时按钮收窄，容器居中 → 视觉从两端向中间收缩 -->
+  <!-- 占满整行 + 网格居中：按钮宽度收窄时，左右边缘同时向中间收 -->
   <div class="cw-submit-wrap" :class="{ 'is-block': block }">
     <button
       type="submit"
       class="btn btn-primary cw-submit"
-      :class="[`is-${status}`, { 'btn-block': block && !isMorph, 'is-pressed': pressed, 'is-morph': isMorph }]"
+      :class="[`is-${displayStatus}`, { 'btn-block': block && !isMorph, 'is-pressed': pressed, 'is-morph': isMorph }]"
       :disabled="disabled"
-      :aria-busy="status === 'loading' ? 'true' : 'false'"
+      :aria-busy="displayStatus === 'loading' ? 'true' : 'false'"
       :aria-label="ariaLabel"
       @pointerdown="onPointerDown"
       @pointerup="onPointerUp"
       @pointerleave="onPointerUp"
     >
-      <!-- idle：文字 -->
       <span class="cw-submit__label">{{ label }}</span>
 
-      <!-- loading：圆球内的旋转环 -->
-      <span v-if="status === 'loading'" class="cw-submit__glyph" aria-hidden="true">
+      <span v-if="displayStatus === 'loading'" class="cw-submit__glyph" aria-hidden="true">
         <span class="cw-submit__spinner" />
       </span>
 
-      <!-- success：绿色圆球 + 对勾 -->
-      <span v-else-if="status === 'success'" class="cw-submit__glyph" aria-hidden="true">
+      <span v-else-if="displayStatus === 'success'" class="cw-submit__glyph" aria-hidden="true">
         <svg class="cw-submit__check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="20 6 9 17 4 12" />
         </svg>
       </span>
 
-      <!-- error：红色圆球 + 叉 -->
-      <span v-else-if="status === 'error'" class="cw-submit__glyph" aria-hidden="true">
+      <span v-else-if="displayStatus === 'error'" class="cw-submit__glyph" aria-hidden="true">
         <svg class="cw-submit__cross" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="3" stroke-linecap="round">
           <line x1="18" y1="6" x2="6" y2="18" />
@@ -113,31 +153,36 @@ function onPointerUp() {
 </template>
 
 <style scoped>
-/* 容器负责居中和占位：按钮收窄时保持原区域高度，不引起表单跳动 */
+/* 满行居中容器：唯一职责是把按钮固定在水平中线上 */
 .cw-submit-wrap {
-  display: flex;
-  justify-content: center;
+  /* 固定 1fr 列宽 = 容器全宽：按钮 width:100% 才有稳定的百分比基准，
+     否则列宽会随按钮内容收缩，导致 width 过渡失效（瞬间变圆）。 */
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
   align-items: center;
   width: 100%;
 }
 .cw-submit-wrap:not(.is-block) {
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: auto;
   width: auto;
 }
 
 .cw-submit {
   --submit-circle: 48px;
-  --submit-shrink: .75s;                /* 收缩/展开速度（慢一点，便于看清） */
-  --submit-ease: cubic-bezier(.3, .92, .3, 1);
+  --submit-shrink: .85s;
+  --submit-ease: cubic-bezier(.45, 0, .25, 1);
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   height: 48px;
   padding: 0 24px;
   overflow: hidden;
   border-radius: 12px;
-  /* 长方形 ↔ 圆球：宽/高/圆角/内边距同步缓慢形变 */
+  /* 左、右边缘同时向内：宽度 + 圆角 + 内边距同步过渡 */
   transition:
     width var(--submit-shrink) var(--submit-ease),
     height var(--submit-shrink) var(--submit-ease),
@@ -149,11 +194,11 @@ function onPointerUp() {
     transform .12s ease;
 }
 
-/* 变成圆球：收窄到固定直径，由外层 flex 居中 = 从两端向中间收缩 */
+/* 圆球：宽度收到固定直径，由外层居中 → 两侧边缘对称内收 */
 .cw-submit.is-morph {
-  width: var(--submit-circle) !important;
-  min-width: var(--submit-circle);
-  max-width: var(--submit-circle);
+  /* 只动画 width；不要在这里改 min/max-width —— 它们会瞬间把宽度夹到 48px，
+     导致 width 过渡来不及播放（视觉上像“瞬间跳到圆球”）。 */
+  width: var(--submit-circle);
   height: var(--submit-circle);
   padding: 0;
   border-radius: 50%;
@@ -178,7 +223,7 @@ function onPointerUp() {
   cursor: not-allowed;
 }
 
-/* 文案：形变期间淡出且不占位 */
+/* 文案：形变开始即淡出 */
 .cw-submit__label {
   transition: opacity .18s ease;
   white-space: nowrap;
@@ -188,7 +233,7 @@ function onPointerUp() {
   pointer-events: none;
 }
 
-/* 形变态图标层：绝对居中，避免形变抖动 */
+/* 图标层绝对居中（相对按钮自身），不随宽度变化偏移 */
 .cw-submit__glyph {
   position: absolute;
   inset: 0;
@@ -220,7 +265,7 @@ function onPointerUp() {
   animation: cw-submit-spin .9s linear infinite;
 }
 
-/* 对勾/叉号描边绘制（放慢到 0.6s，让打勾过程可见） */
+/* 对勾/叉号描边绘制（慢速） */
 .cw-submit__check polyline {
   stroke-dasharray: 24;
   stroke-dashoffset: 24;
@@ -237,7 +282,6 @@ function onPointerUp() {
   animation: cw-submit-draw .32s .38s ease-out forwards;
 }
 
-/* 按下微缩（仅 idle） */
 .cw-submit.is-pressed:not(.is-morph) {
   transform: scale(.985);
 }
@@ -255,7 +299,7 @@ function onPointerUp() {
   75% { transform: translateX(-3px); }
 }
 
-/* 无动画偏好：不做形变位移/抖动，仅状态色与图标切换 */
+
 @media (prefers-reduced-motion: reduce) {
   .cw-submit {
     transition: background-color .12s ease, border-color .12s ease;
