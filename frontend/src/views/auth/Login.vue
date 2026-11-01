@@ -132,7 +132,7 @@ async function handleLogin() {
       return
     }
     status.value = 'success'
-    successTimer = setTimeout(() => router.push('/dashboard'), 950)
+    successTimer = setTimeout(() => router.push('/dashboard'), 1300)
   } catch (e) {
     status.value = 'error'
     err.value = e.message || '登录失败，请检查 CID 和密码'
