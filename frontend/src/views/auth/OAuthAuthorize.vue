@@ -51,7 +51,7 @@ const granted = ref(false)
 function grant() {
   granted.value = true
   const redirect = getRedirectUri()
-  window.location.href = `${redirect}?token=${encodeURIComponent(token.value)}`
+  window.location.href = `${redirect}#token=${encodeURIComponent(token.value)}`
 }
 function cancel() { router.push('/') }
 const form = ref({ cid: '', password: '' })
@@ -68,8 +68,9 @@ const ALLOWED_REDIRECTS = [
 function getRedirectUri() {
   const uri = route.query.redirect_uri || route.query.redirect || ''
   // 仅允许白名单中的地址
+  if (import.meta.env.PROD && /^http:\/\/localhost/.test(uri)) return '/'
   if (ALLOWED_REDIRECTS.includes(uri)) return uri
-  return 'http://localhost:5176/oauth/callback'
+  return '/'
 }
 
 onMounted(() => {
@@ -95,7 +96,7 @@ async function handleLogin() {
     localStorage.setItem('cw_user', JSON.stringify(res.data.user))
     granted.value = true
     const redirect = getRedirectUri()
-    window.location.href = `${redirect}?token=${encodeURIComponent(res.data.token)}`
+    window.location.href = `${redirect}#token=${encodeURIComponent(res.data.token)}`
   } catch (e) { err.value = e.message || '登录失败' }
   finally { loading.value = false }
 }

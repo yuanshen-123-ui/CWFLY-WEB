@@ -41,6 +41,7 @@
  */
 import { ref, watch } from 'vue'
 import { isDarkTheme } from '@/utils/theme'
+import { escapeHtml } from '@/utils/sanitize'
 import { useMapSettingsStore } from '@/store/mapSettings'
 import { createAircraft3DLayer, updateAircraft3D, destroyAircraft3D } from '@/utils/aircraft3d'
 import {
@@ -923,7 +924,7 @@ export function useOnlineMapInteraction(cfg) {
     map.add(marker)
 
     const info = new AMap.InfoWindow({
-      content: `<b>${b.label || b.callsign}</b><br/>席位: ${b.type}<br/>` +
+      content: `<b>${escapeHtml(b.label || b.callsign)}</b><br/>席位: ${escapeHtml(b.type)}<br/>` +
         (b.icao ? `机场: ${b.icao}` : ''),
     })
     marker.on('click', () => {
@@ -1033,7 +1034,7 @@ export function useOnlineMapInteraction(cfg) {
       position: toGcj02(p.lon, p.lat),
       content: `<div style="position:relative;width:40px;height:40px;overflow:visible">
         <img src="/aircraft-icons/${icon}.svg" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(${heading - 90}deg);height:20px;width:auto;${iconFilter}" />
-        <span style="position:absolute;left:50%;top:100%;transform:translateX(-50%);font-size:10px;color:${callColor};font-weight:600;${callShadow}white-space:nowrap">${callsign}</span>
+        <span style="position:absolute;left:50%;top:100%;transform:translateX(-50%);font-size:10px;color:${callColor};font-weight:600;${callShadow}white-space:nowrap">${escapeHtml(callsign)}</span>
       </div>`,
       offset: new AMap.Pixel(-20, -20),
     })
@@ -1041,8 +1042,8 @@ export function useOnlineMapInteraction(cfg) {
 
     const info = new AMap.InfoWindow({
       content: [
-        `<b>${callsign}</b>`,
-        `机型: ${p.aircraft || '-'}`,
+        `<b>${escapeHtml(callsign)}</b>`,
+        `机型: ${escapeHtml(p.aircraft || '-')}`,
         `高度: ${p.altitude || '-'}ft`,
         `速度: ${p.groundspeed || '-'}kt`,
         `应答机: ${p.transponder || '-'}`,
